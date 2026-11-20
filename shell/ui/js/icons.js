@@ -28,6 +28,12 @@ const P = {
   stop: '<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   chevron: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>',
+  lock: '<rect x="5.5" y="10.5" width="13" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
+  headset: '<path d="M4.5 15v-3a7.5 7.5 0 0 1 15 0v3"/><rect x="3.5" y="14" width="4" height="6" rx="1.5"/><rect x="16.5" y="14" width="4" height="6" rx="1.5"/>',
+  bluetooth: '<path d="M7 7.5l10 9-5 4.5V3l5 4.5-10 9"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  battery: '<rect x="3" y="8" width="16" height="8" rx="2"/><path d="M21 11v2"/>',
+  usb: '<path d="M12 3v14M12 3l-2.5 3h5zM12 12l-4-2.5V7.5M12 14l4-2.5V9.5"/><circle cx="12" cy="19" r="2"/>',
 };
 
 export function icon(name, cls = "i") {

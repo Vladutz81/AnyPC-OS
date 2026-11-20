@@ -90,8 +90,11 @@ export function clock() {
   return `<span class="clock" data-clock>${timeNow()}</span>`;
 }
 
+let clock24 = true;
+export function setClock24(on) { clock24 = !!on; }
+
 export function timeNow() {
-  return new Date().toLocaleTimeString(document.documentElement.lang || "en", { hour: "2-digit", minute: "2-digit" });
+  return new Date().toLocaleTimeString(document.documentElement.lang || "en", { hour: "2-digit", minute: "2-digit", hour12: !clock24 });
 }
 
 export function bytes(n) {

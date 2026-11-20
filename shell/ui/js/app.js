@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { Input, moveFocus, focusables } from "./input.js";
 import { setLang, t } from "./i18n.js";
-import { el, esc, timeNow } from "./ui.js";
+import { el, esc, timeNow, setClock24 } from "./ui.js";
 import { BootScreen } from "./screens/boot.js";
 import { UsersScreen } from "./screens/users.js";
 import { SetupScreen } from "./screens/setup.js";
@@ -16,18 +16,20 @@ export const SCREENS = { home: HomeScreen, library: LibraryScreen, game: GameScr
 class App {
   constructor(stage) {
     this.stage = stage;
-    this.stack = [];
-    this.overlay = null;
+    this.stack = [];   // full screens
+    this.layers = [];  // overlays on top (control center, dialogs, keyboard)
     this.data = { state: null, users: [], games: [], settings: null, running: { running: false } };
     this.user = null;
+    this.lastInput = Date.now();
     this.input = new Input({
       move: (d) => moveFocus(this.root(), d),
       activate: () => this.activate(),
       back: () => this.back(),
       menu: () => this.toggleControl(),
-      tab: (d) => this.top() && this.top().onTab && this.top().onTab(d),
-      any: (e) => !this.overlay && this.top() && this.top().onAny ? this.top().onAny(e) : false,
-      anyPad: (p) => this.top() && this.top().onPad && this.top().onPad(p),
+      tab: (d) => { const o = this.layers.length ? this.topLayer() : this.top(); o && o.onTab && o.onTab(d); },
+      any: (e) => this.onAny(e),
+      anyPad: (p) => { const o = this.top(); o && o.onPad && o.onPad(p); this.emit("pads"); },
+      activity: () => { this.lastInput = Date.now(); },
     });
     document.body.dataset.input = "mouse";
     // Missing artwork: drop the <img> and keep the abstract cover underneath.
@@ -35,8 +37,10 @@ class App {
       if (e.target.tagName === "IMG" && e.target.closest(".art")) e.target.remove();
     }, true);
     stage.addEventListener("click", (e) => this.onClick(e));
-    setInterval(() => document.querySelectorAll("[data-clock]").forEach((c) => (c.textContent = timeNow())), 10000);
+    stage.addEventListener("focusin", (e) => ensureVisible(e.target));
+    setInterval(() => this.tickClock(), 10000);
     setInterval(() => this.pollRunning(), 3000);
+    setInterval(() => this.checkIdle(), 30000);
   }
 
   // ---------- data ----------
@@ -57,16 +61,25 @@ class App {
   applySettings(s) {
     this.data.settings = s;
     setLang(s.language);
+    setClock24(s.clock_24h !== false);
+    this.tickClock();
     document.body.classList.toggle("reduce-motion", !!s.reduce_motion);
     document.body.classList.toggle("high-contrast", !!s.high_contrast);
+    document.documentElement.style.setProperty("--safe", String((s.overscan || 100) / 100));
   }
 
   async saveSettings(patch) {
     try {
       this.applySettings(await api.post("/api/settings", patch));
+      return true;
     } catch (e) {
-      this.toast(t("error"));
+      this.toast(e.message || t("error"));
+      return false;
     }
+  }
+
+  tickClock() {
+    document.querySelectorAll("[data-clock]").forEach((c) => (c.textContent = timeNow()));
   }
 
   async pollRunning() {
@@ -81,9 +94,19 @@ class App {
     } catch (e) { /* service restarting; try again next tick */ }
   }
 
+  // Rest mode after the chosen idle time, unless a game is running.
+  checkIdle() {
+    const s = this.data.settings;
+    if (!s || !s.rest_after || this.data.running.running || (this.data.state && this.data.state.demo)) return;
+    if (Date.now() - this.lastInput > s.rest_after * 60000) {
+      this.lastInput = Date.now();
+      api.post("/api/power/suspend", {}).catch(() => {});
+    }
+  }
+
   emit(name) {
     for (const s of this.stack) s.on && s.on(name);
-    this.overlay && this.overlay.on && this.overlay.on(name);
+    for (const l of this.layers) l.on && l.on(name);
   }
 
   // ---------- launching ----------
@@ -105,11 +128,14 @@ class App {
     this.emit("running");
   }
 
-  // ---------- navigation ----------
+  // ---------- screens ----------
   top() { return this.stack[this.stack.length - 1]; }
-  root() { return this.overlay ? this.overlay.el : (this.top() ? this.top().el : this.stage); }
+  topLayer() { return this.layers[this.layers.length - 1]; }
+  get overlay() { return this.layers.find((l) => l instanceof ControlCenter) || null; }
+  root() { return this.layers.length ? this.topLayer().el : (this.top() ? this.top().el : this.stage); }
 
   show(name, params = {}, opts = {}) {
+    while (this.layers.length) this.closeLayer(this.topLayer(), null, true);
     const Screen = SCREENS[name];
     const scr = new Screen(this, params);
     const prev = this.top();
@@ -134,7 +160,11 @@ class App {
   }
 
   back() {
-    if (this.overlay) return this.closeControl();
+    if (this.layers.length) {
+      const l = this.topLayer();
+      if (l.onBack && l.onBack()) return;
+      return this.closeLayer(l, null);
+    }
     const top = this.top();
     if (top && top.onBack && top.onBack()) return;
     if (this.stack.length > 1) {
@@ -150,48 +180,70 @@ class App {
   }
 
   activate() {
+    const l = this.topLayer();
+    if (l && l.padOnly && document.body.dataset.input === "pad") return; // e.g. controller test
     const a = document.activeElement;
     if (!a || a === document.body) return moveFocus(this.root(), "down");
-    if (a.tagName === "INPUT" && a.type === "text") return moveFocus(this.root(), "down");
+    if (a.tagName === "INPUT" && document.body.dataset.input === "kbd") return moveFocus(this.root(), "down");
     a.click();
+  }
+
+  onAny(e) {
+    const l = this.topLayer();
+    if (l) return e && l.onKey ? l.onKey(e) : false;
+    const top = this.top();
+    return top && top.onAny ? top.onAny(e) : false;
   }
 
   onClick(e) {
     const b = e.target.closest("[data-act]");
     if (!b) return;
     const act = b.dataset.act;
+    const owner = this.layers.slice().reverse().find((l) => l.el.contains(b)) || this.top();
     if (act === "back") return this.back();
     if (act === "control") return this.toggleControl();
-    const owner = this.overlay && this.overlay.el.contains(b) ? this.overlay : this.top();
     owner && owner.act && owner.act(act, b, e);
+  }
+
+  // ---------- layers ----------
+  openLayer(layer) {
+    const under = this.layers.length ? this.topLayer() : this.top();
+    if (under) {
+      under.restoreFocus = document.activeElement;
+      under.el.setAttribute("inert", "");
+      if (!this.layers.length) under.el.classList.add("under");
+    }
+    this.layers.push(layer);
+    this.stage.appendChild(layer.el);
+    this.focusIn(layer);
+  }
+
+  closeLayer(layer, value, silent) {
+    const i = this.layers.indexOf(layer);
+    if (i < 0) return;
+    this.layers.splice(i, 1);
+    layer.dispose && layer.dispose();
+    layer.el.remove();
+    const under = this.layers.length ? this.topLayer() : this.top();
+    if (under) {
+      under.el.removeAttribute("inert");
+      if (!this.layers.length) under.el.classList.remove("under");
+      if (!silent) this.focusIn(under);
+    }
+    layer.done && layer.done(value);
   }
 
   toggleControl() {
     if (!this.data.state || (this.top() && this.top().noMenu)) return;
-    this.overlay ? this.closeControl() : this.openControl();
+    const cc = this.overlay;
+    if (cc) return this.closeLayer(cc, null);
+    if (this.layers.length) return; // a dialog is open; finish it first
+    this.openLayer(new ControlCenter(this));
   }
 
-  openControl() {
-    const top = this.top();
-    if (top) { top.restoreFocus = document.activeElement; top.el.setAttribute("inert", ""); top.el.classList.add("under"); }
-    this.overlay = new ControlCenter(this);
-    this.stage.appendChild(this.overlay.el);
-    this.focusIn(this.overlay);
-  }
+  closeControl() { const cc = this.overlay; if (cc) this.closeLayer(cc, null); }
 
-  closeControl() {
-    if (!this.overlay) return;
-    this.overlay.dispose && this.overlay.dispose();
-    this.overlay.el.remove();
-    this.overlay = null;
-    const top = this.top();
-    if (top) { top.el.removeAttribute("inert"); top.el.classList.remove("under"); this.focusIn(top); }
-  }
-
-  goHome() {
-    this.closeControl();
-    this.show("home", {}, { reset: true });
-  }
+  goHome() { this.show("home", {}, { reset: true }); }
 
   afterBoot() {
     if (!this.data.users.length) this.show("setup", {}, { reset: true });
@@ -203,12 +255,30 @@ class App {
     this.show("home", {}, { reset: true });
   }
 
+  // Leave the shell; the session restarts it or switches to the desktop.
+  async exitShell(action) {
+    const res = await api.post(`/api/power/${action}`, {}).catch((e) => ({ error: e.message }));
+    if (res && res.demo) return this.toast(t("demo_only"));
+    if (res && res.note === "exit-shell") return window.close();
+    if (res && res.error) this.toast(res.error);
+  }
+
   toast(msg) {
     this.stage.querySelectorAll(".toast").forEach((n) => n.remove());
     const n = el(`<div class="toast" role="status">${esc(msg)}</div>`);
     this.stage.appendChild(n);
-    setTimeout(() => n.remove(), 2600);
+    setTimeout(() => n.remove(), 3000);
   }
+}
+
+// Keep the focused element inside its scrolling list visible.
+function ensureVisible(target) {
+  const box = target.closest && target.closest("[data-scroll]");
+  if (!box || box === target) return;
+  const b = box.getBoundingClientRect(), r = target.getBoundingClientRect();
+  const pad = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  if (r.top < b.top + pad) box.scrollTop -= b.top + pad - r.top;
+  else if (r.bottom > b.bottom - pad) box.scrollTop += r.bottom - (b.bottom - pad);
 }
 
 async function start() {

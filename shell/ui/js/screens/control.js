@@ -81,8 +81,8 @@ export class ControlCenter {
   async act(a, b) {
     const app = this.app;
     if (a === "home") return app.goHome();
-    if (a === "library") { app.closeControl(); return app.show("library"); }
-    if (a === "settings") { app.closeControl(); return app.show("settings"); }
+    if (a === "library") return app.show("library");
+    if (a === "settings") return app.show("settings");
     if (a === "quit") { await app.quitGame(); return this.renderCards(); }
     if (a === "power") {
       const m = this.el.querySelector(".menu");
@@ -91,10 +91,11 @@ export class ControlCenter {
       return;
     }
     if (a === "pw") {
-      const res = await api.post(`/api/power/${b.dataset.v}`, {}).catch(() => null);
-      if (res && res.demo) app.toast(`${b.textContent.trim()} (demo)`);
-      else if (res && res.note === "exit-shell") window.close();
-      else if (!res || !res.ok) app.toast(t("error"));
+      const v = b.dataset.v;
+      if (v === "desktop") return app.exitShell("desktop");
+      const res = await api.post(`/api/power/${v}`, {}).catch((e) => ({ error: e.message }));
+      if (res && res.demo) app.toast(`${b.textContent.trim()} · ${t("demo_only")}`);
+      else if (res && res.error) app.toast(res.error);
       return;
     }
     if (a === "vol-" || a === "vol+" || a === "mute") {

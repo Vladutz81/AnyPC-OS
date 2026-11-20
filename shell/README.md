@@ -32,23 +32,34 @@ UI falls back to a built-in demo.
 | Back           | B                  | Esc / Backspace       | Back button  |
 | Control center | Guide / Start      | Home / F1             | Bell icon    |
 | Switch tab     | LB / RB            | Page Up / Page Down   | Click tab    |
+| Keyboard: delete / space | LB / RB  | Backspace / Space     | Click keys   |
 
 ## Service API (localhost only)
 
-| Method | Path                         | Purpose                         |
-|--------|------------------------------|---------------------------------|
-| GET    | `/api/state`                 | Version, demo flag, running game |
-| GET    | `/api/games[?refresh]`       | Installed games                 |
-| GET    | `/api/games/<id>/art`        | Cover art or icon, if any       |
-| POST   | `/api/games/<id>/launch`     | Start a game                    |
-| GET    | `/api/running`               | Game currently running          |
-| POST   | `/api/running/stop`          | Quit the running game           |
-| GET/POST | `/api/users`               | Profiles                        |
-| GET/POST | `/api/settings`            | Settings (validated keys only)  |
-| GET    | `/api/system`                | Hardware information            |
-| GET/POST | `/api/audio`               | Volume and mute (PipeWire)      |
-| GET    | `/api/network`               | Connections (NetworkManager)    |
-| POST   | `/api/power/<action>`        | `suspend`, `reboot`, `poweroff`, `desktop` |
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/state` | Version, demo flag, running game |
+| GET | `/api/games[?refresh]` · `/api/games/<id>/art` | Installed games, cover art |
+| POST | `/api/games/<id>/launch` · `/api/running/stop` | Start / quit a game |
+| GET/POST | `/api/users` · `/api/users/<id>` · `/api/users/<id>/delete` | Profiles |
+| GET/POST | `/api/settings` · `/api/settings/reset` | Shell settings (validated keys only) |
+| GET/POST | `/api/audio` | Volume, mute, output device (PipeWire) |
+| GET | `/api/network[?rescan]` | Connections, Wi-Fi networks, saved networks |
+| POST | `/api/network/wifi` · `/connect` · `/disconnect` · `/forget` | Wi-Fi on/off, join, leave, forget (NetworkManager) |
+| GET | `/api/bluetooth` | Adapter and devices (BlueZ) |
+| POST | `/api/bluetooth/power` · `/scan` · `/pair` · `/connect` · `/disconnect` · `/remove` | Pairing and connections |
+| GET/POST | `/api/displays` | Connected displays, resolution used by the session |
+| GET/POST | `/api/timedate` · GET `/api/timezones` | Time zone, automatic time |
+| POST | `/api/hostname` | Device name |
+| GET | `/api/storage` | Drives and free space |
+| GET/POST | `/api/updates` · `/api/updates/check|apply|rollback` | System updates (bootc) |
+| GET | `/api/modules` | Optional modules installed (AnyPS5) |
+| GET | `/api/system` | Hardware information |
+| POST | `/api/power/<action>` | `suspend`, `reboot`, `poweroff`, `desktop`, `restart-shell` |
+
+Actions that need more rights (time zone, device name, updates) are allowed for
+the console user by `session/polkit/50-anypc.rules`; updates run as root in the
+`anypc-update*.service` units and report progress in `/run/anypc/update.json`.
 
 The service listens on 127.0.0.1 only, rejects requests for other host names, and
 requires an `X-AnyPC: 1` header on every POST so web pages cannot drive it.

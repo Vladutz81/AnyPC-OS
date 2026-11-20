@@ -18,8 +18,10 @@
 
 ## M2 — Real hardware
 - [ ] Boot splash (Plymouth theme with the AnyPC mark)
-- [ ] Wi-Fi connection from Settings (network list + password entry)
-- [ ] Bluetooth controller pairing from Settings
+- [x] Wi-Fi connection from Settings (network list + on-screen keyboard)
+- [x] Bluetooth pairing from Settings
+- [x] Full settings: display, sound output, date & time, device name, storage,
+      users, power, updates with rollback, controller test
 - [ ] In-game quick menu over the running game (gamescope overlay)
 - [ ] NVIDIA image variant
 - [ ] Test on several PCs; hardware compatibility list

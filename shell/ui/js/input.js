@@ -18,6 +18,12 @@ export function moveFocus(root, dir) {
   // Vertical moves stay inside a column marked data-vtrap (settings pane, menus).
   const trap = cur && (dir === "up" || dir === "down") && cur.closest && cur.closest("[data-vtrap]");
   if (trap && root.contains(trap)) list = list.filter((e) => trap.contains(e));
+  // Inside a grid of rows (the on-screen keyboard), left/right never leave the row.
+  const rows = cur && (dir === "left" || dir === "right") && cur.closest && cur.closest("[data-rows]");
+  if (rows) {
+    const a0 = cur.getBoundingClientRect();
+    list = list.filter((e) => { const r = e.getBoundingClientRect(); return Math.min(a0.bottom, r.bottom) - Math.max(a0.top, r.top) > 0; });
+  }
   if (!cur || !root.contains(cur) || cur === document.body) {
     (root.querySelector("[data-autofocus]") || list[0]).focus({ preventScroll: true });
     return true;
@@ -79,8 +85,9 @@ export class Input {
 
   _key(e) {
     const h = this.h;
-    const inText = e.target && e.target.tagName === "INPUT" && /^(text|search)$/.test(e.target.type);
+    const inText = e.target && e.target.tagName === "INPUT" && /^(text|search|password)$/.test(e.target.type);
     this._setMode("kbd");
+    h.activity && h.activity();
     if (h.any && h.any(e)) { e.preventDefault(); return; }
     if (DIRS[e.key]) {
       if (inText && (e.key === "ArrowLeft" || e.key === "ArrowRight")) return;
@@ -105,6 +112,7 @@ export class Input {
   _pointer(e) {
     if (Math.abs(e.movementX) + Math.abs(e.movementY) < 2) return;
     this._setMode("mouse");
+    this.h.activity && this.h.activity();
     const el = e.target.closest && e.target.closest(FOCUSABLE);
     if (el && document.activeElement !== el && !el.closest("[inert]")) el.focus({ preventScroll: true });
   }
@@ -142,7 +150,7 @@ export class Input {
         st.next = ts + 110;
         this._pad(() => this.h.move(dir));
       }
-      if (any && this.h.anyPad) this.h.anyPad(p);
+      if (any) { this.h.activity && this.h.activity(); this.h.anyPad && this.h.anyPad(p); }
     }
   }
 

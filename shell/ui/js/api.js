@@ -17,10 +17,22 @@ const DEMO = (() => {
     users: [{ id: "u1", name: "Player 1", color: "blue" }],
     games,
     settings: { language: "en", reduce_motion: false, high_contrast: false, boot_animation: true, auto_updates: true,
+      clock_24h: true, rest_after: 30, overscan: 100,
       compat: { steam: true, native: true, emulators: true, anyps5: false } },
-    system: { os: "AnyPC OS 0.1 (preview)", hostname: "anypc-preview", kernel: "—", cpu: "—", gpus: [], memory: null, disk: null },
-    audio: { available: true, volume: 70, muted: false },
-    network: { available: true, devices: [{ device: "eth0", type: "ethernet", state: "connected", connection: "Wired" }], wifi: [] },
+    system: { os: "AnyPC OS 0.1 (preview)", hostname: "anypc-preview", kernel: "preview", cpu: "Preview CPU", gpus: ["Preview GPU"], memory: 16 * 1024 ** 3 },
+    audio: { available: true, volume: 70, muted: false, outputs: [{ id: 48, name: "HDMI / DisplayPort", default: true }, { id: 52, name: "Speakers", default: false }] },
+    network: { available: true, wifiEnabled: true,
+      devices: [{ device: "eth0", type: "ethernet", state: "connected", connection: "Wired connection 1" }, { device: "wlan0", type: "wifi", state: "disconnected", connection: null }],
+      wifi: [{ ssid: "Home Network", signal: 82, secure: true, active: false, saved: false }, { ssid: "Guest", signal: 55, secure: false, active: false, saved: false }],
+      saved: [{ name: "Wired connection 1", type: "ethernet" }] },
+    bluetooth: { available: true, powered: true, scanning: false,
+      devices: [{ mac: "AA:BB:CC:00:00:01", name: "Wireless Controller", paired: true, connected: true, icon: "input-gaming", battery: 80 }] },
+    displays: { outputs: [{ connector: "HDMI-A-1", modes: ["3840x2160", "2560x1440", "1920x1080", "1280x720"] }], mode: "auto" },
+    timedate: { available: true, timezone: "Europe/Bucharest", ntp: true, synced: true },
+    timezones: ["America/New_York", "Asia/Tokyo", "Europe/Berlin", "Europe/Bucharest", "Europe/London", "Europe/Paris", "UTC"],
+    storage: [{ mount: "/var", device: "/dev/nvme0n1p3", fs: "btrfs", total: 512 * 1024 ** 3, used: 180 * 1024 ** 3, free: 332 * 1024 ** 3, removable: false }],
+    updates: { managed: true, state: "idle", checked: null, booted: { version: "0.1" }, staged: null, rollback: null, available: null },
+    modules: { anyps5: { installed: false } },
     running: { running: false },
   };
 })();
@@ -53,7 +65,7 @@ function demo(method, path, body) {
   if (method === "GET") {
     if (path === "/api/state") return { ...d.state, running: d.running };
     if (path.startsWith("/api/games")) return d.games;
-    const key = path.slice(5);
+    const key = path.slice(5).split("?")[0];
     if (key in d) return JSON.parse(JSON.stringify(d[key]));
     return {};
   }
@@ -82,6 +94,65 @@ function demo(method, path, body) {
     return d.audio;
   }
   if (path.startsWith("/api/power/")) return { ok: true, demo: true };
+  const fail = (msg) => { throw Object.assign(new Error(msg), { api: true }); };
+  const um = path.match(/^\/api\/users\/([^/]+)(\/delete)?$/);
+  if (um) {
+    const u = d.users.find((x) => x.id === um[1]);
+    if (!u) fail("unknown user");
+    if (um[2]) { d.users = d.users.filter((x) => x !== u); return { ok: true }; }
+    if (body.name) u.name = String(body.name).slice(0, 16);
+    if (body.color) u.color = body.color;
+    return u;
+  }
+  const n = d.network;
+  if (path === "/api/network/wifi") { n.wifiEnabled = body.on; return n; }
+  if (path === "/api/network/connect") {
+    const w = n.wifi.find((x) => x.ssid === body.ssid);
+    if (w.secure && !w.saved && body.password !== "password123") fail("Wrong password (preview password: password123)");
+    n.wifi.forEach((x) => (x.active = x === w));
+    w.saved = true;
+    if (!n.saved.find((x) => x.name === w.ssid)) n.saved.push({ name: w.ssid, type: "wifi" });
+    return n;
+  }
+  if (path === "/api/network/disconnect") { n.wifi.forEach((x) => (x.active = false)); return n; }
+  if (path === "/api/network/forget") {
+    n.saved = n.saved.filter((x) => x.name !== body.name);
+    n.wifi.forEach((x) => { if (x.ssid === body.name) { x.saved = false; x.active = false; } });
+    return n;
+  }
+  const bt = d.bluetooth;
+  if (path === "/api/bluetooth/power") { bt.powered = body.on; return bt; }
+  if (path === "/api/bluetooth/scan") {
+    bt.scanning = true;
+    setTimeout(() => { bt.scanning = false; }, 4000);
+    if (!bt.devices.find((x) => x.mac === "AA:BB:CC:00:00:02"))
+      bt.devices.push({ mac: "AA:BB:CC:00:00:02", name: "Xbox Wireless Controller", paired: false, connected: false, icon: "input-gaming", battery: null });
+    return bt;
+  }
+  const bm = path.match(/^\/api\/bluetooth\/(pair|connect|disconnect|remove)$/);
+  if (bm) {
+    const x = bt.devices.find((y) => y.mac === body.mac);
+    if (bm[1] === "remove") bt.devices = bt.devices.filter((y) => y !== x);
+    else { x.paired = true; x.connected = bm[1] !== "disconnect"; }
+    return bt;
+  }
+  if (path === "/api/displays") { d.displays.mode = body.mode; return d.displays; }
+  if (path === "/api/timedate") { if (body.timezone) d.timedate.timezone = body.timezone; if ("ntp" in body) d.timedate.ntp = body.ntp; return d.timedate; }
+  if (path === "/api/hostname") { d.system.hostname = body.name; return { hostname: body.name }; }
+  if (path === "/api/settings/reset") {
+    d.settings = { language: "en", reduce_motion: false, high_contrast: false, boot_animation: true, auto_updates: true, clock_24h: true, rest_after: 30, overscan: 100,
+      compat: { steam: true, native: true, emulators: true, anyps5: false } };
+    return d.settings;
+  }
+  const upm = path.match(/^\/api\/updates\/(check|apply|rollback)$/);
+  if (upm) {
+    const u = d.updates;
+    u.checked = Math.floor(Date.now() / 1000);
+    if (upm[1] === "check") u.available = u.staged ? null : { version: "0.2" };
+    if (upm[1] === "apply") { u.staged = u.available; u.available = null; }
+    if (upm[1] === "rollback") fail("No previous version on this system");
+    return u;
+  }
   return {};
 }
 

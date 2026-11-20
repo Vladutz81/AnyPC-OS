@@ -2,6 +2,7 @@ import { el, esc, background } from "../ui.js";
 import { icon, mark } from "../icons.js";
 import { t, LANGS, getLang } from "../i18n.js";
 import { api } from "../api.js";
+import { keyboard } from "../layers.js";
 
 const COLORS = ["blue", "teal", "violet", "orange"];
 
@@ -64,7 +65,7 @@ export class SetupScreen {
 <span class="avatar c-${this.color}" data-av style="width:8.75rem;height:8.75rem;font-size:3rem;box-shadow:var(--focus)">${esc((this.name.trim()[0] || "P").toUpperCase())}</span>
 <div style="flex:1;display:flex;flex-direction:column;gap:1rem">
 <label for="pname" style="font-size:1rem;color:var(--muted)">${esc(t("player_name"))}</label>
-<input id="pname" class="field" type="text" maxlength="16" autocomplete="off" value="${esc(this.name)}" data-autofocus>
+<input id="pname" class="field" type="text" maxlength="16" autocomplete="off" value="${esc(this.name)}" data-act="name" data-autofocus>
 <span style="font-size:1rem;color:var(--muted)">${esc(t("colour"))}</span>
 <div class="swatches">${COLORS.map((c) => `<button type="button" class="swatch c-${c}" data-act="color" data-v="${c}" aria-label="${c}" aria-pressed="${c === this.color}"></button>`).join("")}</div>
 </div></div>${this.nav(this.addOnly ? t("finish") : t("next"))}`;
@@ -81,6 +82,17 @@ export class SetupScreen {
   }
 
   async act(a, b) {
+    if (a === "name") {
+      if (document.body.dataset.input !== "pad") return; // typing on a real keyboard
+      const input = this.el.querySelector("#pname");
+      const v = await keyboard(this.app, { title: t("player_name"), value: input.value, maxLength: 16 });
+      if (v != null) {
+        input.value = v;
+        this.name = v;
+        this.el.querySelector("[data-av]").textContent = (v.trim()[0] || "P").toUpperCase();
+      }
+      return;
+    }
     if (a === "lang") {
       await this.app.saveSettings({ language: b.dataset.v });
       return this.render();
