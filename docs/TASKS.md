@@ -16,9 +16,9 @@ booted**. Nothing has been tested on real hardware yet.
 ---
 
 ## 1. Continuous integration
-- [ ] `.github/workflows/ci.yml`: on every push and PR run `./scripts/check.sh`
+- [x] `.github/workflows/ci.yml`: on every push and PR run `./scripts/check.sh`
       (Python 3.11+, Node 20 for syntax checks, Playwright Chromium for the e2e test).
-- [ ] Badge in `README.md`.
+- [x] Badge in `README.md`.
 
 Done when: CI is green on the PR that adds it, and a deliberately broken test makes it fail.
 

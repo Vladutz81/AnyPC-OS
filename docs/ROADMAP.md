@@ -14,7 +14,8 @@
 - [x] Session scripts (greetd → gamescope → shell)
 - [x] Containerfile on Fedora bootc
 - [ ] First successful image build and boot in a VM
-- [ ] CI: run tests, build the image
+- [x] CI: run the shell checks on pushes and pull requests
+- [ ] CI: build the bootable image
 
 ## M2 — Real hardware
 - [ ] Boot splash (Plymouth theme with the AnyPC mark)
