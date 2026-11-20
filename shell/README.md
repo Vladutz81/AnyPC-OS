@@ -67,6 +67,11 @@ State is kept in `~/.config/anypc/state.json`.
 
 ## Tests
 
+From the repository root, run the same checks as GitHub Actions. Install Node 20
+for the JavaScript checks and Playwright with Chromium for the demo UI test.
+
 ```sh
-cd shell/daemon && python3 -m unittest discover -s tests
+python3 -m pip install playwright==1.65.2
+python3 -m playwright install chromium
+./scripts/check.sh
 ```

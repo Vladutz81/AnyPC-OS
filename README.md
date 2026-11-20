@@ -1,5 +1,7 @@
 # AnyPC OS
 
+[![CI](https://github.com/Vladutz81/AnyPC-OS/actions/workflows/ci.yml/badge.svg)](https://github.com/Vladutz81/AnyPC-OS/actions/workflows/ci.yml)
+
 **An open-source, console-style operating system for ordinary PCs.**
 Boot a regular computer straight into a controller-first, living-room interface — your games, your emulators, one system.
 
