@@ -248,6 +248,9 @@ let lang = "en";
 export function setLang(l) { lang = S[l] ? l : "en"; document.documentElement.lang = lang; }
 export function getLang() { return lang; }
 
+// True when the current language defines this key itself (no English fallback).
+export function has(key) { return !!(S[lang] && key in S[lang]); }
+
 export function t(key, vars) {
   let s = (S[lang] && S[lang][key]) || S.en[key] || key;
   if (vars) for (const k in vars) s = s.replace(`{${k}}`, vars[k]);
