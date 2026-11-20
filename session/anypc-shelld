@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Wrapper for the installed shell service.
+export ANYPC_UI_DIR="${ANYPC_UI_DIR:-/usr/share/anypc/shell/ui}"
+export PYTHONPATH="/usr/share/anypc/shell/daemon${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m anypc_shelld "$@"

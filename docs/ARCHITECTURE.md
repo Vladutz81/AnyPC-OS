@@ -1,27 +1,57 @@
 # Architecture
 
-## 1. Base image
-- Start from an existing distribution instead of writing an OS from scratch. Default candidate: **Fedora Atomic (ostree / bootc)**, the approach used by Bazzite. Alternatives: Arch, Debian.
-- Immutable root, atomic updates, rollback to the previous image.
-- Kernel with broad hardware support; Mesa (AMD/Intel) and NVIDIA proprietary driver variant installed from vendor packages, not redistributed by us in-tree.
-- PipeWire audio, Bluetooth, controller drivers (xpad, hid-playstation, hid-nintendo, Steam Input).
+AnyPC OS is a Linux distribution whose session is a console shell instead of a
+desktop.
 
-## 2. Session
-- Boot straight into a **gamescope** session running the launcher.
-- Optional "desktop mode" (KDE/GNOME) reachable from the launcher.
+```
+┌──────────────────────────────────────────────┐
+│ Shell UI (shell/ui) — full-screen, gamepad   │
+│   ⇅ JSON over 127.0.0.1                      │
+│ anypc-shelld (shell/daemon) — games, audio,  │
+│   network, power, users, settings            │
+├──────────────────────────────────────────────┤
+│ Session: greetd → anypc-session → gamescope  │
+├──────────────────────────────────────────────┤
+│ Base image: Fedora bootc (atomic updates,    │
+│ rollback), Mesa/Vulkan, PipeWire, NM, BlueZ  │
+└──────────────────────────────────────────────┘
+```
 
-## 3. Launcher (`launcher/`)
-- Controller-first UI: library, store links, settings (network, display, audio, accounts), power menu.
-- Candidate stack: Qt/QML or Rust + a GPU UI toolkit. Decision pending (see ROADMAP M1).
-- Game sources are plugins: Steam, native Linux, emulators, AnyPS5 module.
+## 1. Base image (`build/`)
+- Bootable container on `quay.io/fedora/fedora-bootc`. The whole OS is one image:
+  updates are atomic and `bootc rollback` returns to the previous version.
+- Installer ISO and VM images are produced with bootc-image-builder.
 
-## 4. Compatibility modules (`compat/`)
-- Each module is optional, separately packaged, and clearly labelled with its upstream and license.
-- `compat/anyps5/`: integration glue only (detect module, launch, map controller). The AnyPS5 code itself stays upstream.
+## 2. Session (`session/`)
+- greetd logs the `player` account straight into `anypc-session`.
+- `anypc-session` runs gamescope; inside it `anypc-session-inner` starts the
+  service and the UI (Chromium in kiosk mode).
+- Games inherit the gamescope display, so they open on top of the shell and the
+  shell comes back when they exit.
+- "Switch to desktop" leaves a flag that makes the session start a desktop
+  environment instead, if one is installed.
 
-## 5. Build & release (`build/`)
-- Container-based image build (`Containerfile`), CI producing an ISO and an update image.
-- Reproducible builds as a goal.
+## 3. Shell UI (`shell/ui`)
+- Plain HTML/CSS/JS modules, no build step, no network access (fonts bundled).
+- One input layer for gamepad (standard mapping), keyboard and mouse with
+  spatial navigation.
+- Sized in rem units tied to the screen, so the layout is identical from a
+  handheld to a 4K TV.
+- Strings in `js/i18n.js` (English, Romanian).
+
+## 4. Shell service (`shell/daemon`)
+- Python 3 standard library only.
+- Discovers games: desktop entries with the `Game` category (native and Flatpak)
+  and Steam libraries (`appmanifest_*.acf`, including extra library folders).
+- Launches one game at a time and records play time.
+- Wraps system tools: `wpctl` (audio), `nmcli` (network), `systemctl` (power).
+- Local-only HTTP API; see `shell/README.md`.
+
+## 5. Compatibility modules
+- Steam/Proton, native and Flatpak games are supported by the service today.
+- Emulators and the optional AnyPS5 module are settings switches for now; their
+  integration lands in later milestones. AnyPS5 stays an independent upstream
+  project.
 
 ## 6. Hardware targets
 - Tier 1: x86_64 PCs with AMD or Intel GPUs, UEFI.

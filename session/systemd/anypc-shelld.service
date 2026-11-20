@@ -1,0 +1,13 @@
+# Optional user service, for running the shell service inside a normal desktop
+# session (development, or "Big Picture"-style use on an existing distro).
+# The console session (anypc-session) starts its own copy and does not need this.
+[Unit]
+Description=AnyPC OS shell service
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/anypc-shelld
+Restart=on-failure
+
+[Install]
+WantedBy=graphical-session.target

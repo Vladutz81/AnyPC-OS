@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Runs inside gamescope: starts the shell service, then the shell UI in a kiosk
+# browser. Games started by the service inherit this display, so they open
+# on top of the shell; closing a game brings the shell back.
+set -euo pipefail
+
+PORT="${ANYPC_PORT:-7700}"
+URL="http://127.0.0.1:$PORT/"
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/anypc"
+mkdir -p "$DATA"
+
+anypc-shelld --port "$PORT" >>"$DATA/shelld.log" 2>&1 &
+SHELLD=$!
+trap 'kill "$SHELLD" 2>/dev/null || true' EXIT
+
+for _ in $(seq 1 50); do
+  if (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; then break; fi
+  sleep 0.1
+done
+
+BROWSER="${ANYPC_BROWSER:-}"
+if [[ -z "$BROWSER" ]]; then
+  for b in chromium-browser chromium google-chrome; do
+    if command -v "$b" >/dev/null 2>&1; then BROWSER="$b"; break; fi
+  done
+fi
+if [[ -z "$BROWSER" ]]; then
+  echo "anypc-session-inner: no supported browser found (install chromium)" >&2
+  exit 1
+fi
+
+# Restart the shell if it crashes; stop when it is closed on purpose (exit code 0).
+while true; do
+  set +e
+  "$BROWSER" \
+    --kiosk --app="$URL" \
+    --user-data-dir="$DATA/browser" \
+    --no-first-run --no-default-browser-check --disable-translate \
+    --disable-features=Translate,MediaRouter --noerrdialogs \
+    --autoplay-policy=no-user-gesture-required \
+    --enable-features=OverlayScrollbar \
+    --password-store=basic
+  code=$?
+  set -e
+  [[ $code -eq 0 ]] && break
+  sleep 1
+done

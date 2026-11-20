@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=AnyPC OS
+Comment=Console mode
+Exec=anypc-session
+Type=Application
+DesktopNames=AnyPC

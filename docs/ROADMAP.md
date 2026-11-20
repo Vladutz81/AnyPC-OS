@@ -1,28 +1,35 @@
 # Roadmap
 
 ## M0 — Foundations
-- [x] Name: AnyPC OS
-- [x] Repo skeleton, GPL-3.0 license, legal notes
-- [ ] Publish on GitHub, set up issue templates and CI
-- [ ] Choose base (Fedora Atomic vs alternatives) after a small spike
+- [x] Name, repo, GPL-3.0 license, legal notes
+- [x] Logo and boot animation
+- [x] Shell design (8 screens)
 
-## M1 — Bootable image
-- [ ] Container-based image build
-- [ ] Boots to gamescope session in a VM and on real hardware (AMD/Intel)
-- [ ] Minimal launcher (list + launch games), gamepad navigation
+## M1 — Working shell (in progress)
+- [x] Shell service: game discovery (native, Flatpak, Steam), launch, play time,
+      audio, network, power, users, settings
+- [x] Shell UI: boot animation, who's playing, first-time setup, home, library,
+      game hub, control center, settings
+- [x] Gamepad, keyboard and mouse navigation; English and Romanian
+- [x] Session scripts (greetd → gamescope → shell)
+- [x] Containerfile on Fedora bootc
+- [ ] First successful image build and boot in a VM
+- [ ] CI: run tests, build the image
 
-## M2 — Usable console experience
-- [ ] USB installer
-- [ ] Settings: Wi-Fi, Bluetooth, display, audio, controllers
-- [ ] Steam/Proton and native Linux games integration
-- [ ] Atomic updates + rollback
+## M2 — Real hardware
+- [ ] Boot splash (Plymouth theme with the AnyPC mark)
+- [ ] Wi-Fi connection from Settings (network list + password entry)
+- [ ] Bluetooth controller pairing from Settings
+- [ ] In-game quick menu over the running game (gamescope overlay)
+- [ ] NVIDIA image variant
+- [ ] Test on several PCs; hardware compatibility list
 
 ## M3 — Compatibility modules
-- [ ] Emulator plugin system (legal emulators only)
-- [ ] Optional AnyPS5 module integration (as upstream matures)
-- [ ] NVIDIA support, wider hardware testing
+- [ ] Emulator integration (legal emulators only, user-supplied files)
+- [ ] Optional AnyPS5 module, as the upstream project matures
+- [ ] Cover art for non-Steam games
 
 ## M4 — Polish
-- [ ] Themes, profiles, achievements of our own
+- [ ] Achievements of our own, themes, more languages
 - [ ] Remote play / streaming
-- [ ] Documentation site, translations (RO first)
+- [ ] Documentation site

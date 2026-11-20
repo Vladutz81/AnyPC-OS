@@ -1,0 +1,6 @@
+# bootc-image-builder configuration: the account the console session uses.
+# CHANGE THE PASSWORD before building an image you will install.
+[[customizations.user]]
+name = "player"
+password = "change-me"
+groups = ["wheel", "video", "audio", "input"]

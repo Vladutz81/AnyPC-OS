@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# AnyPC OS session: runs the console shell inside gamescope.
+# Started by the display manager (greetd autologin) or by hand from a TTY.
+set -euo pipefail
+
+RUNTIME="${XDG_RUNTIME_DIR:-/tmp}"
+NEXT="$RUNTIME/anypc-next-session"
+rm -f "$NEXT"
+
+# Size gamescope to the display; it picks the native mode when these are unset.
+GS_ARGS=(-e -f --xwayland-count 1)
+[[ -n "${ANYPC_WIDTH:-}" && -n "${ANYPC_HEIGHT:-}" ]] && GS_ARGS+=(-W "$ANYPC_WIDTH" -H "$ANYPC_HEIGHT")
+
+if command -v gamescope >/dev/null 2>&1; then
+  gamescope "${GS_ARGS[@]}" -- anypc-session-inner || true
+else
+  echo "anypc-session: gamescope not found, running without it" >&2
+  anypc-session-inner || true
+fi
+
+# "Switch to desktop" from the power menu leaves a flag behind.
+if [[ -f "$NEXT" && "$(cat "$NEXT")" == "desktop" ]]; then
+  rm -f "$NEXT"
+  for s in startplasma-wayland gnome-session; do
+    if command -v "$s" >/dev/null 2>&1; then exec "$s"; fi
+  done
+  echo "anypc-session: no desktop session installed" >&2
+fi
