@@ -1,0 +1,13 @@
+# AnyPC OS base image — SKELETON (M1 will turn this into a real image build)
+# Base is a placeholder until the base-distro spike is finished.
+FROM quay.io/fedora-ostree-desktops/base-atomic:latest
+
+# Gaming/session essentials (to be refined)
+RUN rpm-ostree install \
+      gamescope \
+      mesa-vulkan-drivers \
+      pipewire \
+    && ostree container commit
+
+# Launcher and compat modules will be copied in here
+# COPY launcher/ /usr/share/anypc/launcher/
