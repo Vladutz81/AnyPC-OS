@@ -53,7 +53,7 @@ UI falls back to a built-in demo.
 | POST | `/api/hostname` | Device name |
 | GET | `/api/storage` | Drives and free space |
 | GET/POST | `/api/updates` · `/api/updates/check|apply|rollback` | System updates (bootc) |
-| GET | `/api/modules` | Optional modules installed (AnyPS5) |
+| GET | `/api/modules` | Availability of optional modules such as registered AnyPS5 Linux outputs |
 | GET | `/api/system` | Hardware information |
 | POST | `/api/power/<action>` | `suspend`, `reboot`, `poweroff`, `desktop`, `restart-shell` |
 
@@ -64,6 +64,8 @@ the console user by `session/polkit/50-anypc.rules`; updates run as root in the
 The service listens on 127.0.0.1 only, rejects requests for other host names, and
 requires an `X-AnyPC: 1` header on every POST so web pages cannot drive it.
 State is kept in `~/.config/anypc/state.json`.
+
+For converted Linux applications, see the [AnyPS5 registration guide](../compat/anyps5/README.md).
 
 ## Tests
 

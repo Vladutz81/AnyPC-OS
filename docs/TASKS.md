@@ -66,9 +66,9 @@ Done when: works in the VM with at least one native game.
       launch through the matching emulator. User supplies their own files; nothing is bundled.
 
 ## 8. AnyPS5 module
-- [ ] When the separate AnyPS5 project ships a release with a CLI, detect it
-      (`/api/modules`) and list titles it can run, launched through it.
-- [ ] Clear disclaimer in the UI; no firmware, keys or game files handled by AnyPC OS.
+- [x] Detect registered Linux outputs from the separate AnyPS5 project through
+      `/api/modules`. List the titles and launch their native executables from the library.
+- [x] Document the independent project and the use of local exports.
 
 ## 9. NVIDIA image variant
 - [ ] Second Containerfile stage/tag with the NVIDIA driver from RPM Fusion (or the

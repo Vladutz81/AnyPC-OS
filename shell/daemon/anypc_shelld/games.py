@@ -5,6 +5,7 @@ import hashlib
 import os
 import re
 import shlex
+from pathlib import Path
 
 FIELD_CODE = re.compile(r"%[fFuUdDnNickvm]")
 STEAM_SKIP = re.compile(r"(proton|steam linux runtime|steamworks common|steamvr)", re.I)
@@ -148,6 +149,49 @@ def scan_desktop(dirs=None):
     return games
 
 
+def scan_anyps5(root=None):
+    """Find local Linux outputs registered by placing a converted folder here."""
+    root = Path(root) if root is not None else Path(_home(), "Games", "AnyPS5")
+    games = []
+    try:
+        folders = sorted(root.iterdir())
+    except OSError:
+        return games
+    for folder in folders:
+        if folder.is_symlink() or not folder.is_dir():
+            continue
+        for shortcut in sorted(folder.glob("*.desktop")):
+            executable = shortcut.with_suffix("")
+            if shortcut.is_symlink() or executable.is_symlink():
+                continue
+            if not shortcut.is_file() or not executable.is_file() or not os.access(executable, os.X_OK):
+                continue
+            try:
+                with executable.open("rb") as stream:
+                    header = stream.read(20)
+            except OSError:
+                continue
+            if not header.startswith(b"\x7fELF\x02\x01") or header[18:20] != b"\x3e\x00":
+                continue
+            entry = parse_desktop_file(str(shortcut))
+            if not entry:
+                continue
+            icon = folder / Path(entry["icon"]).name
+            art = str(icon) if icon.suffix.lower() in ART_EXT and not icon.is_symlink() and icon.is_file() else None
+            games.append({
+                "id": game_id("anyps5", f"{folder.name}/{shortcut.name}"),
+                "name": entry["name"],
+                "genre": entry["genre"],
+                "source": "anyps5",
+                # The exported shortcut contains an absolute Exec and Path.
+                # Resolve the sibling executable so a moved folder still works.
+                "launch": {"argv": [str(executable.resolve())], "cwd": str(folder.resolve())},
+                "art": art,
+                "hue": hue_for(entry["name"]),
+            })
+    return games
+
+
 # -- Steam ---------------------------------------------------------------------
 
 _VDF_TOKEN = re.compile(r'"((?:[^"\\]|\\.)*)"|([{}])')
@@ -246,6 +290,8 @@ def scan_all(desktop_dirs=None, steam_roots=None, compat=None):
         games += [g for g in desktop if g["source"] in ("native", "flatpak")]
     if compat.get("emulators", True):
         games += [g for g in desktop if g["source"] == "emulator"]
+    if compat.get("anyps5", False):
+        games += scan_anyps5()
     if compat.get("steam", True):
         steam = scan_steam(steam_roots)
         names = {g["name"].lower() for g in steam}

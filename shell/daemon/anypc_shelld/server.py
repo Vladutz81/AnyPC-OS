@@ -44,6 +44,7 @@ class Runner:
             if not self.demo:
                 proc = subprocess.Popen(games_mod.launch_argv(game), stdin=subprocess.DEVNULL,
                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                        cwd=game["launch"].get("cwd"),
                                         start_new_session=True)
             self.current = {"game": game, "proc": proc, "started": time.time()}
         self.store.record_start(game["id"])

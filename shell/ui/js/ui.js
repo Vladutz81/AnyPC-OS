@@ -78,7 +78,7 @@ export function date(ts) {
 }
 
 export function sourceLabel(g) {
-  return t({ steam: "src_steam", flatpak: "src_flatpak" }[g.source] || "src_native");
+  return t({ steam: "src_steam", flatpak: "src_flatpak", anyps5: "src_anyps5" }[g.source] || "src_native");
 }
 
 export function avatar(u, size = "3rem") {

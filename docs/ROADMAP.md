@@ -29,7 +29,7 @@
 
 ## M3 — Compatibility modules
 - [ ] Emulator integration (legal emulators only, user-supplied files)
-- [ ] Optional AnyPS5 module, as the upstream project matures
+- [x] Optional library integration for exported AnyPS5 Linux applications
 - [ ] Cover art for non-Steam games
 
 ## M4 — Polish
