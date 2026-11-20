@@ -1,0 +1,220 @@
+# AnyPC OS boot splash (Plymouth "script" plugin).
+#
+# Deep navy ground, the AnyPC mark breathing in a soft blue light and a thin
+# progress line. Shown from power-on until the console session takes over, and
+# again when the console shuts down or restarts. Also asks for the drive
+# password when the system disk is encrypted.
+#
+# Artwork is drawn for a 2160-pixel-high screen and scaled down once at start,
+# so the splash looks the same from handhelds to 4K TVs.
+
+Window.SetBackgroundTopColor(0.008, 0.027, 0.094);     # #020718
+Window.SetBackgroundBottomColor(0.020, 0.059, 0.169);  # #050F2B
+
+sw = Window.GetWidth();
+sh = Window.GetHeight();
+sx = Window.GetX();
+sy = Window.GetY();
+
+scale = sh / 2160;
+if (scale <= 0) scale = 0.5;
+# Very wide or tall screens: keep the artwork within the shorter side.
+if (sw / 3840 < scale) scale = sw / 3840;
+if (scale < 0.18) scale = 0.18;
+
+# Load an image and scale it to this screen. "drawn" is the width the artwork
+# has on a 2160-pixel-high screen (0 = the file's own width).
+fun scaled(file, drawn) {
+  local.img = Image(file);
+  local.f = scale;
+  if (drawn > 0) local.f = scale * drawn / local.img.GetWidth();
+  local.w = Math.Int(local.img.GetWidth() * local.f + 0.5);
+  local.h = Math.Int(local.img.GetHeight() * local.f + 0.5);
+  if (local.w < 1) local.w = 1;
+  if (local.h < 1) local.h = 1;
+  return local.img.Scale(local.w, local.h);
+}
+
+font_px = Math.Int(40 * scale * 2) / 2;
+if (font_px < 9) font_px = 9;
+font = "Sans " + font_px;
+
+cx = sx + sw / 2;
+cy = sy + sh * 0.46;
+
+# ---------- mark and light ----------
+glow_img = scaled("glow.png", 1600);
+glow = Sprite(glow_img);
+glow.SetPosition(cx - glow_img.GetWidth() / 2, cy - glow_img.GetHeight() / 2, 1);
+glow.SetOpacity(0);
+
+mark_img = scaled("mark.png", 0);
+mark = Sprite(mark_img);
+mark.SetPosition(cx - mark_img.GetWidth() / 2, cy - mark_img.GetHeight() / 2, 3);
+mark.SetOpacity(0);
+
+# ---------- progress line ----------
+track_img = scaled("track.png", 0);
+fill_src = Image("fill.png");
+bar_w = track_img.GetWidth();
+bar_h = track_img.GetHeight();
+bar_x = Math.Int(cx - bar_w / 2);
+bar_y = Math.Int(cy + mark_img.GetHeight() / 2 + 100 * scale);
+
+track = Sprite(track_img);
+track.SetPosition(bar_x, bar_y, 3);
+track.SetOpacity(0);
+fill = Sprite();
+fill.SetPosition(bar_x, bar_y, 4);
+fill.SetOpacity(0);
+fill_px = 0;
+
+mode = Plymouth.GetMode();
+show_bar = (mode == "boot" || mode == "updates" || mode == "system-upgrade" || mode == "firmware-upgrade");
+
+target = 0;      # progress reported by Plymouth, 0..1
+shown = 0;       # progress drawn, eases towards target
+asking = 0;      # 1 while a password or question is on screen
+frame = 0;
+
+fun set_fill(p) {
+  local.px = Math.Int(bar_w * p);
+  if (local.px == global.fill_px) return;
+  global.fill_px = local.px;
+  if (local.px < 1) {
+    fill.SetOpacity(0);
+  } else {
+    fill.SetImage(fill_src.Scale(local.px, bar_h));
+  }
+}
+
+# ---------- messages (fsck, updates, errors) ----------
+message = Sprite();
+message.SetPosition(0, 0, 5);
+
+fun show_message(text) {
+  local.img = Image.Text(text, 0.80, 0.86, 1, 1, font);
+  message.SetImage(local.img);
+  message.SetPosition(Math.Int(cx - local.img.GetWidth() / 2), Math.Int(bar_y + 70 * scale), 5);
+  message.SetOpacity(0.85);
+}
+
+fun hide_message(text) {
+  message.SetOpacity(0);
+}
+
+Plymouth.SetMessageFunction(show_message);
+Plymouth.SetHideMessageFunction(hide_message);
+
+# ---------- password / question prompt ----------
+entry_img = scaled("entry.png", 0);
+entry = Sprite(entry_img);
+entry_x = Math.Int(cx - entry_img.GetWidth() / 2);
+entry_y = Math.Int(bar_y + 30 * scale);
+entry.SetPosition(entry_x, entry_y, 6);
+entry.SetOpacity(0);
+prompt = Sprite();
+prompt.SetOpacity(0);
+answer = Sprite();
+answer.SetOpacity(0);
+
+fun put_prompt(text) {
+  if (text == "") text = "Password";
+  local.img = Image.Text(text, 0.80, 0.86, 1, 1, font);
+  prompt.SetImage(local.img);
+  prompt.SetPosition(Math.Int(cx - local.img.GetWidth() / 2), Math.Int(entry_y - local.img.GetHeight() - 28 * scale), 7);
+  prompt.SetOpacity(1);
+}
+
+fun put_answer(text) {
+  local.img = Image.Text(text, 1, 1, 1, 1, font);
+  answer.SetImage(local.img);
+  answer.SetPosition(Math.Int(cx - local.img.GetWidth() / 2),
+                     Math.Int(entry_y + (entry_img.GetHeight() - local.img.GetHeight()) / 2), 7);
+  answer.SetOpacity(1);
+}
+
+fun ask_begin() {
+  global.asking = 1;
+  entry.SetOpacity(1);
+  track.SetOpacity(0);
+  fill.SetOpacity(0);
+  message.SetOpacity(0);
+}
+
+fun display_password(text, bullets) {
+  ask_begin();
+  put_prompt(text);
+  local.dots = "";
+  local.i = 0;
+  while (local.i < bullets && local.i < 32) {
+    local.dots = local.dots + "●";
+    local.i++;
+  }
+  if (local.dots == "") local.dots = " ";
+  put_answer(local.dots);
+}
+
+fun display_question(text, typed) {
+  ask_begin();
+  put_prompt(text);
+  if (typed == "") typed = " ";
+  put_answer(typed);
+}
+
+fun display_normal() {
+  global.asking = 0;
+  entry.SetOpacity(0);
+  prompt.SetOpacity(0);
+  answer.SetOpacity(0);
+}
+
+Plymouth.SetDisplayPasswordFunction(display_password);
+Plymouth.SetDisplayQuestionFunction(display_question);
+Plymouth.SetDisplayNormalFunction(display_normal);
+
+# ---------- progress ----------
+fun boot_progress(duration, progress) {
+  if (progress > global.target) global.target = progress;
+}
+
+fun system_update(percent) {
+  global.target = percent / 100;
+}
+
+Plymouth.SetBootProgressFunction(boot_progress);
+Plymouth.SetSystemUpdateFunction(system_update);
+
+# ---------- animation, 50 frames per second ----------
+fun refresh() {
+  global.frame++;
+  # Fade in over 0.6 s, then breathe with a 2.4 s period like the shell.
+  local.intro = Math.Min(global.frame / 30, 1);
+  local.wave = (Math.Sin(global.frame * Math.Pi * 2 / 120) + 1) / 2;
+  glow.SetOpacity(local.intro * (0.45 + 0.55 * local.wave));
+  mark.SetOpacity(local.intro * (0.86 + 0.14 * local.wave));
+
+  if (global.show_bar && !global.asking) {
+    global.shown = global.shown + (global.target - global.shown) * 0.06;
+    track.SetOpacity(local.intro);
+    set_fill(global.shown);
+    if (global.fill_px > 0) fill.SetOpacity(local.intro);
+  }
+}
+
+Plymouth.SetRefreshFunction(refresh);
+
+# On quit the last frame stays on screen (plymouth quit --retain-splash) until
+# the console session draws, so leave it complete and steady.
+fun quit() {
+  display_normal();
+  glow.SetOpacity(0.8);
+  mark.SetOpacity(1);
+  if (global.show_bar) {
+    set_fill(1);
+    fill.SetOpacity(1);
+    track.SetOpacity(1);
+  }
+}
+
+Plymouth.SetQuitFunction(quit);

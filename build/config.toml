@@ -4,3 +4,7 @@
 name = "player"
 password = "change-me"
 groups = ["wheel", "video", "audio", "input", "anypc"]
+
+# Show the AnyPC boot splash instead of kernel messages.
+[customizations.kernel]
+append = "rhgb quiet"

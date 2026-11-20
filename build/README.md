@@ -53,6 +53,8 @@ qemu-system-x86_64 -enable-kvm -m 4096 -smp 4 -cpu host \
 
 ## What happens at boot
 
+0. The AnyPC boot splash (Plymouth theme in `session/plymouth/`) shows from the
+   first seconds; its last frame stays on screen until the shell draws.
 1. greetd logs in the `player` account (`session/greetd.toml`).
 2. `anypc-session` starts gamescope.
 3. Inside it, `anypc-session-inner` starts `anypc-shelld` and opens the shell
@@ -66,4 +68,17 @@ qemu-system-x86_64 -enable-kvm -m 4096 -smp 4 -cpu host \
 sudo bootc switch localhost/anypc-os:dev   # first time
 sudo bootc upgrade                          # later
 sudo bootc rollback                         # go back one version
+```
+
+## Boot splash
+
+The theme lives in `session/plymouth/anypc/`. After changing its artwork, run
+`scripts/render_splash.py` to regenerate the PNGs. To preview it on a Linux
+desktop without rebooting (needs Plymouth with its X11 renderer, e.g. the
+`plymouth-x11` package on Debian/Ubuntu):
+
+```sh
+sudo cp -r session/plymouth/anypc /usr/share/plymouth/themes/
+sudo plymouthd --no-daemon --kernel-command-line="quiet splash plymouth.ignore-serial-consoles plymouth.splash=anypc" &
+sudo plymouth --show-splash; sleep 8; sudo plymouth quit
 ```

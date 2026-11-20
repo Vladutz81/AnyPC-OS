@@ -3,5 +3,6 @@
 [customizations.installer.kickstart]
 contents = """
 graphical
+bootloader --append="rhgb quiet"
 user --name=player --lock --groups=video,audio,input,anypc
 """

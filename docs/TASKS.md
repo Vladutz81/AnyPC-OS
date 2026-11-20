@@ -42,8 +42,12 @@ Done when: an ISO artifact can be downloaded from a workflow run.
 Done when: a screen recording or screenshots of the shell running in the VM are in the PR.
 
 ## 4. Boot splash
-- [ ] Plymouth theme `anypc` (logo mark + subtle pulse, dark navy background) in
-      `session/plymouth/`, installed and selected in the Containerfile.
+- [x] Plymouth theme `anypc` (logo mark + subtle pulse, dark navy background) in
+      `session/plymouth/`, installed and selected in the Containerfile. Also handles
+      the encrypted-drive password prompt, messages and the shutdown/restart screen.
+      Tested with Plymouth's X11 renderer at 1280×800, 1080p and 4K.
+- [ ] Check in the VM (task 3): splash from power-on, then the shell with no text
+      console in between (`plymouth quit --retain-splash`, greetd waits for it).
 
 Done when: the VM shows the AnyPC mark from power-on until the shell's own boot animation.
 
