@@ -17,6 +17,7 @@ import threading
 import time
 
 from . import OS_NAME, OS_VERSION
+from .games import scan_anyps5
 
 TIMEOUT = 8
 MAC_RE = re.compile(r"^[0-9A-F]{2}(:[0-9A-F]{2}){5}$")
@@ -490,9 +491,7 @@ class Backend:
 
     # ---------- compatibility modules ----------
     def modules(self):
-        anyps5 = shutil.which("anyps5") or next((p for p in (
-            os.path.expanduser("~/.local/share/anyps5"), "/usr/share/anyps5") if os.path.isdir(p)), None)
-        return {"anyps5": {"installed": bool(anyps5)}}
+        return {"anyps5": {"installed": bool(scan_anyps5())}}
 
     # ---------- power ----------
     POWER = {
@@ -707,7 +706,7 @@ class DemoBackend(Backend):
         return self.updates()
 
     def modules(self):
-        return {"anyps5": {"installed": False}}
+        return {"anyps5": {"installed": True}}
 
     def power(self, action):
         if action not in ("suspend", "reboot", "poweroff", "desktop", "restart-shell"):
@@ -735,4 +734,8 @@ def demo_games(compat=None):
             continue
         out.append({"id": game_id("demo", n), "name": n, "genre": g, "source": src,
                     "launch": {"argv": ["true"]}, "art": None, "hue": h})
+    if compat.get("anyps5", False):
+        out.append({"id": game_id("demo", "Homebrew Sample"), "name": "Homebrew Sample",
+                    "genre": "Game", "source": "anyps5", "launch": {"argv": ["true"]},
+                    "art": None, "hue": 240})
     return out

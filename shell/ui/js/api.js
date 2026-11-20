@@ -12,6 +12,8 @@ const DEMO = (() => {
     seconds: [50400, 115200, 28800, 0, 162000, 0, 0, 0, 10800, 0][i],
     lastPlayed: [now - 3600, now - 86400, now - 400000, 0, now - 7200, 0, 0, 0, now - 900000, 0][i],
   }));
+  games.push({ id: "demo-anyps5", name: "Homebrew Sample", genre: "Game", hue: 240,
+    source: "anyps5", hasArt: false, seconds: 0, lastPlayed: 0 });
   return {
     state: { os: "AnyPC OS", version: "0.1", daemon: "preview", demo: true, running: { running: false } },
     users: [{ id: "u1", name: "Player 1", color: "blue" }],
@@ -32,7 +34,7 @@ const DEMO = (() => {
     timezones: ["America/New_York", "Asia/Tokyo", "Europe/Berlin", "Europe/Bucharest", "Europe/London", "Europe/Paris", "UTC"],
     storage: [{ mount: "/var", device: "/dev/nvme0n1p3", fs: "btrfs", total: 512 * 1024 ** 3, used: 180 * 1024 ** 3, free: 332 * 1024 ** 3, removable: false }],
     updates: { managed: true, state: "idle", checked: null, booted: { version: "0.1" }, staged: null, rollback: null, available: null },
-    modules: { anyps5: { installed: false } },
+    modules: { anyps5: { installed: true } },
     running: { running: false },
   };
 })();
@@ -64,7 +66,7 @@ function demo(method, path, body) {
   const d = DEMO;
   if (method === "GET") {
     if (path === "/api/state") return { ...d.state, running: d.running };
-    if (path.startsWith("/api/games")) return d.games;
+    if (path.startsWith("/api/games")) return d.games.filter(g => g.source !== "anyps5" || d.settings.compat.anyps5);
     const key = path.slice(5).split("?")[0];
     if (key in d) return JSON.parse(JSON.stringify(d[key]));
     return {};
@@ -76,7 +78,8 @@ function demo(method, path, body) {
   }
   const m = path.match(/^\/api\/games\/([^/]+)\/launch$/);
   if (m) {
-    const g = d.games.find((x) => x.id === m[1]);
+    const g = d.games.find((x) => x.id === m[1] && (x.source !== "anyps5" || d.settings.compat.anyps5));
+    if (!g) throw Object.assign(new Error("unknown game"), { api: true });
     if (d.running.running) throw Object.assign(new Error("a game is already running"), { api: true });
     g.lastPlayed = Math.floor(Date.now() / 1000);
     d.running = { running: true, id: g.id, name: g.name, started: g.lastPlayed };

@@ -5,6 +5,8 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
+from pathlib import Path
+from unittest.mock import patch
 
 from anypc_shelld import games
 from anypc_shelld.server import App, serve
@@ -77,6 +79,30 @@ class ScanTests(unittest.TestCase):
     def test_compat_switches(self):
         gs = games.scan_all([self.apps], [self.steam], {"steam": False, "native": True})
         self.assertTrue(all(g["source"] != "steam" for g in gs))
+
+    def test_anyps5_discovery_relocates_output_and_requires_executable_elf(self):
+        home = Path(self.tmp)
+        folder = home / "Games" / "AnyPS5" / "Local Homebrew"
+        folder.mkdir(parents=True)
+        executable = folder / "example.elf"
+        # Only the ELF identification bytes are needed to test discovery.
+        executable.write_bytes(b"\x7fELF\x02\x01" + bytes(12) + b"\x3e\x00")
+        executable.chmod(0o755)
+        write(folder / "example.elf.desktop", DESKTOP.format(
+            name="Local Homebrew", exec='"/old/folder/example.elf"', cats="Game;",
+            extra="Path=/old/folder"))
+        (folder / "not-linux.elf").write_bytes(b"MZ")
+        (folder / "not-linux.elf").chmod(0o755)
+        write(folder / "not-linux.elf.desktop", DESKTOP.format(
+            name="Wrong Format", exec="/old/folder/not-linux.elf", cats="Game;", extra=""))
+        with patch.object(games, "_home", return_value=str(home)):
+            self.assertFalse(any(game["source"] == "anyps5" for game in games.scan_all([self.apps], [self.steam])))
+            matches = [game for game in games.scan_all([self.apps], [self.steam], {"anyps5": True})
+                       if game["source"] == "anyps5"]
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]["name"], "Local Homebrew")
+        self.assertEqual(games.launch_argv(matches[0]), [str(executable.resolve())])
+        self.assertEqual(matches[0]["launch"]["cwd"], str(folder.resolve()))
 
 
 class ParserTests(unittest.TestCase):
@@ -256,8 +282,9 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(st, 403)
 
     def test_settings_and_audio(self):
-        st, s = self.req("/api/settings", {"compat": {"anyps5": True}})
-        self.assertEqual(st, 422)  # module not installed
+        with patch.object(self.app.backend, "modules", return_value={"anyps5": {"installed": False}}):
+            st, _ = self.req("/api/settings", {"compat": {"anyps5": True}})
+            self.assertEqual(st, 422)  # no registered title
         st, s = self.req("/api/settings", {"compat": {"emulators": False}})
         self.assertEqual(st, 200)
         st, gs = self.req("/api/games?refresh")
@@ -271,6 +298,18 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(st, 400)
         st, a = self.req("/api/audio", {"volume": 150})
         self.assertEqual(a["volume"], 100)
+
+    def test_anyps5_demo_can_be_enabled_and_launched(self):
+        self.assertTrue(self.req("/api/modules")[1]["anyps5"]["installed"])
+        self.assertEqual(self.req("/api/settings", {"compat": {"anyps5": True}})[0], 200)
+        try:
+            titles = [game for game in self.req("/api/games?refresh")[1] if game["source"] == "anyps5"]
+            self.assertEqual(len(titles), 1)
+            status, running = self.req(f"/api/games/{titles[0]['id']}/launch", {})
+            self.assertEqual((status, running["running"]), (200, True))
+        finally:
+            self.req("/api/running/stop", {})
+            self.req("/api/settings", {"compat": {"anyps5": False}})
 
     def test_users_edit_delete(self):
         st, u = self.req("/api/users", {"name": "Ana", "color": "teal"})
