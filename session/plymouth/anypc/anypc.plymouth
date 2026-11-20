@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=AnyPC OS
+Description=AnyPC OS boot splash: the AnyPC mark in a soft blue light on deep navy.
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/anypc
+ScriptFile=/usr/share/plymouth/themes/anypc/anypc.script

@@ -10,7 +10,7 @@ RUN dnf -y install \
       mesa-dri-drivers mesa-vulkan-drivers vulkan-loader \
       pipewire pipewire-pulseaudio wireplumber \
       NetworkManager NetworkManager-wifi bluez polkit \
-      greetd \
+      greetd plymouth plymouth-plugin-script plymouth-plugin-label \
       pciutils \
     && dnf clean all
 
@@ -26,13 +26,29 @@ COPY session/systemd/system/ /usr/lib/systemd/system/
 COPY session/polkit/50-anypc.rules /usr/share/polkit-1/rules.d/50-anypc.rules
 COPY session/sysusers/anypc.conf /usr/lib/sysusers.d/anypc.conf
 COPY session/tmpfiles/anypc.conf /usr/lib/tmpfiles.d/anypc.conf
+COPY session/plymouth/anypc /usr/share/plymouth/themes/anypc
+COPY session/plymouth/plymouthd.conf /etc/plymouth/plymouthd.conf
+COPY session/plymouth/dracut.conf /usr/lib/dracut/dracut.conf.d/50-anypc-splash.conf
+COPY session/plymouth/kargs.toml /usr/lib/bootc/kargs.d/10-anypc-splash.toml
 
+# Preserve the base distribution ID and version for RPM and image tooling.
 RUN chmod 0755 /usr/bin/anypc-session /usr/bin/anypc-session-inner /usr/bin/anypc-shelld /usr/libexec/anypc-update \
-    && sed -i -e '/^VARIANT=/d' -e '/^VARIANT_ID=/d' /usr/lib/os-release \
+    && sed -i -e 's/^NAME=.*/NAME="AnyPC OS"/' -e 's/^PRETTY_NAME=.*/PRETTY_NAME="AnyPC OS"/' \
+      -e '/^VARIANT=/d' -e '/^VARIANT_ID=/d' /usr/lib/os-release \
     && printf 'VARIANT="AnyPC OS"\nVARIANT_ID=anypc\n' >> /usr/lib/os-release \
+    && printf 'AnyPC OS\n\n' > /etc/issue \
     && (getent group anypc >/dev/null || groupadd -r anypc) \
     && getent passwd greetd \
     && command -v agreety \
     && systemctl enable greetd.service NetworkManager.service bluetooth.service \
-    && systemctl set-default graphical.target \
-    && bootc container lint
+    && systemctl set-default graphical.target
+
+# The target initramfs needs the splash before the root filesystem is mounted.
+RUN set -e; set -- /usr/lib/modules/*/vmlinuz; \
+    test "$#" -eq 1; test -f "$1"; \
+    kver=${1%/vmlinuz}; kver=${kver##*/}; \
+    initramfs="/usr/lib/modules/$kver/initramfs.img"; \
+    env DRACUT_NO_XATTR=1 dracut --force --no-hostonly --reproducible "$initramfs" "$kver"; \
+    lsinitrd "$initramfs" | grep -F 'plymouth/themes/anypc/anypc.script'; \
+    lsinitrd "$initramfs" /etc/plymouth/plymouthd.conf | grep -Fx 'Theme=anypc'; \
+    bootc container lint

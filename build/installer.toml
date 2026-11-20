@@ -3,4 +3,5 @@
 [customizations.installer.kickstart]
 contents = """
 graphical
+bootloader --append="rhgb quiet"
 """

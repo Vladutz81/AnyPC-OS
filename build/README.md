@@ -3,7 +3,7 @@
 AnyPC OS is built as a **bootable container** on top of Fedora's `bootc` base
 image: the whole OS is one container image, updated atomically, with rollback.
 
-The current build uses Fedora 44 on x86-64. The installer is a pre-alpha build.
+The current build uses Fedora 44 on x86-64. The AnyPC installer is a pre-alpha build.
 
 ## 1. Build the OS image
 
@@ -33,6 +33,19 @@ sudo podman run --rm --privileged \
   --type anaconda-iso --local --rootfs ext4 --chown "$(id -u):$(id -g)" \
   localhost/anypc-os:dev
 ```
+
+Apply the AnyPC OS boot menu, installer theme and product name before distributing
+the ISO. Install `cpio`, `xorriso`, `mtools`, and `isomd5sum` on the build host.
+Use the `install.iso` produced in the `out` tree as the first argument:
+
+```sh
+python3 build/brand-installer.py out/bootiso/install.iso out/AnyPC-OS-Installer-x86_64.iso
+```
+
+The branding step updates both GRUB menus and the boot configuration in the EFI
+partition, adds the installer product overlay and verifies the media checksum.
+The boot menu offers English and Romanian installation, plus recovery options.
+The machine's firmware controls its own screen before booting the installer.
 
 For a preinstalled `qcow2` image, use `--type qcow2` with
 `./build/config.toml` mounted at `/config.toml`. Set your own credentials in

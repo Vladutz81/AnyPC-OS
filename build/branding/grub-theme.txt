@@ -1,0 +1,26 @@
+# AnyPC OS installer boot menu
+title-text: "AnyPC OS"
+title-color: "#ffffff"
+message-color: "#edf3ff"
+message-bg-color: "#0a1533"
+desktop-color: "#020718"
+
++ image {
+    left = 50%-44
+    top = 14%
+    width = 88
+    height = 88
+    file = "mark.png"
+}
+
++ boot_menu {
+    left = 15%
+    top = 41%
+    width = 70%
+    height = 40%
+    item_height = 32
+    item_padding = 8
+    item_spacing = 5
+    item_color = "#aebfdf"
+    selected_item_color = "#ffffff"
+}

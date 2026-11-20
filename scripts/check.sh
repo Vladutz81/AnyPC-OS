@@ -16,6 +16,9 @@ if command -v shellcheck >/dev/null 2>&1; then
   shellcheck -S warning session/anypc-session session/anypc-session-inner session/anypc-shelld session/anypc-update
 fi
 
+step "Boot splash theme"
+python3 scripts/check_splash.py
+
 if command -v node >/dev/null 2>&1; then
   step "UI modules syntax"
   find shell/ui/js -name '*.js' -print0 | xargs -0 -n1 node --check

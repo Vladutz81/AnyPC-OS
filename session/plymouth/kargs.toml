@@ -1,0 +1,2 @@
+# Show the AnyPC boot splash instead of kernel messages.
+kargs = ["rhgb", "quiet"]
