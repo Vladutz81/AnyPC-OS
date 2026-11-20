@@ -80,14 +80,17 @@ def parse_desktop_file(path):
         return None
     if not argv:
         return None
-    genre = next((c for c in cats if c not in ("Game", "Application")), "Game")
+    genre = next((c for c in cats if c not in ("Game", "Application", "Emulator")), "Game")
     is_flatpak = "/flatpak/" in path or argv[0].endswith("flatpak")
+    source = "flatpak" if is_flatpak else "native"
+    if "Emulator" in cats:
+        source, genre = "emulator", "Emulator"
     return {
         "name": name,
         "genre": _pretty_genre(genre),
         "argv": argv,
         "icon": e.get("Icon", "").strip(),
-        "source": "flatpak" if is_flatpak else "native",
+        "source": source,
         "key": os.path.basename(path),
     }
 
@@ -238,8 +241,11 @@ def scan_steam(roots=None):
 def scan_all(desktop_dirs=None, steam_roots=None, compat=None):
     compat = compat or {}
     games = []
+    desktop = scan_desktop(desktop_dirs)
     if compat.get("native", True):
-        games += [g for g in scan_desktop(desktop_dirs) if g["source"] != "steam"]
+        games += [g for g in desktop if g["source"] in ("native", "flatpak")]
+    if compat.get("emulators", True):
+        games += [g for g in desktop if g["source"] == "emulator"]
     if compat.get("steam", True):
         steam = scan_steam(steam_roots)
         names = {g["name"].lower() for g in steam}

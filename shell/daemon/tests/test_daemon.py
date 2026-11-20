@@ -9,6 +9,7 @@ import urllib.request
 from anypc_shelld import games
 from anypc_shelld.server import App, serve
 from anypc_shelld.store import Store
+from anypc_shelld import system
 from anypc_shelld.system import parse_wpctl_volume, split_nmcli
 
 DESKTOP = """[Desktop Entry]
@@ -86,6 +87,88 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(parse_wpctl_volume("Volume: 0.45 [MUTED]"), (45, True))
         self.assertEqual(parse_wpctl_volume("Volume: 1.00"), (100, False))
         self.assertIsNone(parse_wpctl_volume(""))
+
+
+WPCTL_STATUS = """PipeWire 'pipewire-0' [1.2.7, player@anypc, cookie:1]
+ └─ Clients:
+        33. WirePlumber                         [1.2.7, player@anypc, pid:1200]
+
+Audio
+ ├─ Devices:
+ │      42. Built-in Audio                      [alsa]
+ │
+ ├─ Sinks:
+ │      48. HDMI / DisplayPort 1 Output         [vol: 0.70]
+ │  *   52. Built-in Audio Analog Stereo        [vol: 0.40 MUTED]
+ │
+ ├─ Sources:
+ │  *   53. Built-in Audio Analog Stereo        [vol: 1.00]
+ │
+ └─ Streams:
+
+Video
+ ├─ Sinks:
+ │      70. Should Not Appear
+"""
+
+BOOTC = {"status": {
+    "booted": {"image": {"image": {"image": "ghcr.io/x/anypc-os:latest"}, "version": "0.1", "imageDigest": "sha256:aaa"},
+               "cachedUpdate": {"version": "0.2", "imageDigest": "sha256:bbb"}},
+    "staged": None, "rollback": {"image": {"image": {"image": "ghcr.io/x/anypc-os:latest"}, "version": "0.0.9", "imageDigest": "sha256:ccc"}}}}
+
+
+class SystemParserTests(unittest.TestCase):
+    def test_wpctl_sinks(self):
+        sinks = system.parse_wpctl_sinks(WPCTL_STATUS)
+        self.assertEqual([s["id"] for s in sinks], [48, 52])
+        self.assertTrue(sinks[1]["default"])
+        self.assertEqual(sinks[0]["name"], "HDMI / DisplayPort 1 Output")
+
+    def test_bluetooth(self):
+        devs = system.parse_bt_devices("Device AA:BB:CC:DD:EE:FF Wireless Controller\nController 11:22 x\n")
+        self.assertEqual(devs, [("AA:BB:CC:DD:EE:FF", "Wireless Controller")])
+        info = system.parse_bt_info("\tName: Pad\n\tPaired: yes\n\tConnected: no\n\tBattery Percentage: 0x50 (80)\n")
+        self.assertEqual((info["Paired"], info["Connected"]), ("yes", "no"))
+
+    def test_bootc(self):
+        st = system.parse_bootc_status(BOOTC)
+        self.assertEqual(st["booted"]["version"], "0.1")
+        self.assertEqual(st["available"]["version"], "0.2")
+        self.assertEqual(st["rollback"]["version"], "0.0.9")
+        self.assertIsNone(system.parse_bootc_status({})["booted"])
+
+    def test_session_conf_and_display_mode(self):
+        d = tempfile.mkdtemp()
+        b = system.Backend(d)
+        b.displays = lambda: {"outputs": [{"connector": "HDMI-A-1", "modes": ["1920x1080"]}], "mode": "auto"}
+        b.set_display_mode("1920x1080")
+        self.assertEqual(b.session_conf(), {"ANYPC_WIDTH": "1920", "ANYPC_HEIGHT": "1080"})
+        with self.assertRaises(ValueError):
+            b.set_display_mode("1920x1080; rm -rf /")
+        b.set_display_mode("auto")
+        self.assertEqual(b.session_conf(), {})
+        self.assertEqual(system.parse_session_conf("ANYPC_WIDTH=1280\nEVIL=$(x)\nANYPC_X=a b\n"), {"ANYPC_WIDTH": "1280"})
+
+    def test_validation(self):
+        b = system.Backend(tempfile.mkdtemp())
+        for bad in ("", "-x", "a" * 64, "bad name", "x;y"):
+            with self.assertRaises(ValueError):
+                b.set_hostname(bad)
+        with self.assertRaises(ValueError):
+            b.bt_action("not-a-mac", "pair")
+        with self.assertRaises(ValueError):
+            b.bt_action("AA:BB:CC:DD:EE:FF", "explode")
+        with self.assertRaises(ValueError):
+            b.wifi_connect("x" * 40)
+        with self.assertRaises(ValueError):
+            b.wifi_connect("Home", "short")
+
+    def test_emulator_source(self):
+        tmp = tempfile.mkdtemp()
+        write(os.path.join(tmp, "ra.desktop"), DESKTOP.format(name="RetroArch", exec="retroarch", cats="Game;Emulator;", extra=""))
+        g = games.scan_desktop([tmp])[0]
+        self.assertEqual((g["source"], g["genre"]), ("emulator", "Emulator"))
+        self.assertEqual(games.scan_all([tmp], [], {"emulators": False}), [])
 
 
 class StoreTests(unittest.TestCase):
@@ -174,12 +257,50 @@ class ServerTests(unittest.TestCase):
 
     def test_settings_and_audio(self):
         st, s = self.req("/api/settings", {"compat": {"anyps5": True}})
+        self.assertEqual(st, 422)  # module not installed
+        st, s = self.req("/api/settings", {"compat": {"emulators": False}})
         self.assertEqual(st, 200)
-        self.assertTrue(s["compat"]["anyps5"])
+        st, gs = self.req("/api/games?refresh")
+        self.assertFalse(any(g["source"] == "emulator" for g in gs))
+        self.req("/api/settings", {"compat": {"emulators": True}})
+        st, _ = self.req("/api/settings", {"rest_after": 7})
+        self.assertEqual(st, 400)
+        st, s = self.req("/api/settings", {"rest_after": 10, "overscan": 95})
+        self.assertEqual((s["rest_after"], s["overscan"]), (10, 95))
         st, _ = self.req("/api/settings", {"compat": {"nope": True}})
         self.assertEqual(st, 400)
         st, a = self.req("/api/audio", {"volume": 150})
         self.assertEqual(a["volume"], 100)
+
+    def test_users_edit_delete(self):
+        st, u = self.req("/api/users", {"name": "Ana", "color": "teal"})
+        self.assertEqual(st, 201)
+        st, u2 = self.req(f"/api/users/{u['id']}", {"name": "Ana M", "color": "orange"})
+        self.assertEqual((u2["name"], u2["color"]), ("Ana M", "orange"))
+        st, _ = self.req(f"/api/users/{u['id']}/delete", {})
+        self.assertEqual(st, 200)
+        st, _ = self.req(f"/api/users/{u['id']}/delete", {})
+        self.assertEqual(st, 404)
+
+    def test_demo_wifi_bluetooth_updates(self):
+        st, r = self.req("/api/network/connect", {"ssid": "Home Network", "password": "wrongpass1"})
+        self.assertEqual(st, 422)
+        st, n = self.req("/api/network/connect", {"ssid": "Home Network", "password": "password123"})
+        self.assertTrue(next(w for w in n["wifi"] if w["ssid"] == "Home Network")["active"])
+        st, n = self.req("/api/network/forget", {"name": "Home Network"})
+        self.assertFalse(any(s["name"] == "Home Network" for s in n["saved"]))
+        st, b = self.req("/api/bluetooth/scan", {})
+        self.assertTrue(b["scanning"])
+        st, b = self.req("/api/bluetooth/pair", {"mac": "AA:BB:CC:00:00:02"})
+        self.assertTrue(any(d["mac"] == "AA:BB:CC:00:00:02" and d["paired"] for d in b["devices"]))
+        st, u = self.req("/api/updates/check", {})
+        self.assertEqual(u["available"]["version"], "0.2")
+        st, u = self.req("/api/updates/apply", {})
+        self.assertEqual(u["staged"]["version"], "0.2")
+        st, t = self.req("/api/timedate", {"timezone": "Mars/Base"})
+        self.assertEqual(st, 400)
+        st, t = self.req("/api/timedate", {"timezone": "Europe/London"})
+        self.assertEqual(t["timezone"], "Europe/London")
 
     def test_power_unknown(self):
         st, _ = self.req("/api/power/selfdestruct", {})

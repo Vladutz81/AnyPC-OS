@@ -3,4 +3,4 @@
 [[customizations.user]]
 name = "player"
 password = "change-me"
-groups = ["wheel", "video", "audio", "input"]
+groups = ["wheel", "video", "audio", "input", "anypc"]

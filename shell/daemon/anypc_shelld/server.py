@@ -14,7 +14,7 @@ from urllib.parse import urlsplit, parse_qs
 from . import __version__, OS_NAME, OS_VERSION
 from . import games as games_mod
 from .store import Store
-from .system import Backend, DemoBackend, demo_games
+from .system import Backend, DemoBackend, SystemError_, demo_games
 
 MAX_BODY = 64 * 1024
 GAMES_TTL = 10
@@ -93,7 +93,8 @@ class App:
         self.ui_dir = os.path.realpath(ui_dir) if ui_dir else None
         self.store = store or Store()
         self.demo = demo
-        self.backend = DemoBackend() if demo else Backend()
+        cfg = os.path.dirname(self.store.path)
+        self.backend = DemoBackend(cfg) if demo else Backend(cfg)
         self.runner = Runner(self.store, demo=demo)
         self.desktop_dirs, self.steam_roots = desktop_dirs, steam_roots
         self.port = port
@@ -104,12 +105,31 @@ class App:
         with self._games_lock:
             if refresh or time.time() - self._games_at > GAMES_TTL:
                 if self.demo:
-                    self._games = demo_games()
+                    self._games = demo_games(self.store.settings()["compat"])
                 else:
                     self._games = games_mod.scan_all(self.desktop_dirs, self.steam_roots,
                                                      self.store.settings()["compat"])
                 self._games_at = time.time()
             return list(self._games)
+
+    def start_auto_updates(self):
+        """Check for system updates now and then; download them when found.
+
+        Updates are staged by bootc and take effect at the next restart."""
+        def loop():
+            time.sleep(120)
+            while True:
+                try:
+                    if self.store.settings().get("auto_updates") and self.backend.updates().get("managed"):
+                        self.backend.update_action("check")
+                        time.sleep(600)
+                        if self.backend.updates().get("available"):
+                            self.backend.update_action("apply")
+                except Exception:  # never let the updater take the service down
+                    pass
+                time.sleep(6 * 3600)
+        if not self.demo:
+            threading.Thread(target=loop, daemon=True).start()
 
     def find_game(self, gid):
         return next((g for g in self.games() if g["id"] == gid), None)
@@ -119,6 +139,13 @@ class App:
         return {"id": g["id"], "name": g["name"], "genre": g["genre"], "source": g["source"],
                 "hue": g["hue"], "hasArt": bool(g.get("art")),
                 "seconds": p.get("seconds", 0), "lastPlayed": p.get("last", 0)}
+
+
+def _bool(body, key):
+    v = body.get(key)
+    if not isinstance(v, bool):
+        raise ValueError(f"{key} must be true or false")
+    return v
 
 
 def make_handler(app):
@@ -169,7 +196,7 @@ def make_handler(app):
                 return self._error(HTTPStatus.FORBIDDEN, "bad host")
             url = urlsplit(self.path)
             if url.path.startswith("/api/"):
-                return self._api_get(url.path, parse_qs(url.query))
+                return self._api_get(url.path, parse_qs(url.query, keep_blank_values=True))
             return self._static(url.path)
 
         do_HEAD = do_GET
@@ -189,6 +216,10 @@ def make_handler(app):
                 return self._api_post(urlsplit(self.path).path, body)
             except ValueError as e:
                 return self._error(HTTPStatus.BAD_REQUEST, str(e))
+            except KeyError as e:
+                return self._error(HTTPStatus.NOT_FOUND, str(e.args[0] if e.args else e))
+            except SystemError_ as e:
+                return self._error(HTTPStatus.UNPROCESSABLE_ENTITY, str(e))
             except RuntimeError as e:
                 return self._error(HTTPStatus.CONFLICT, str(e))
 
@@ -210,18 +241,59 @@ def make_handler(app):
                 return self._json(app.runner.status())
             if path == "/api/settings":
                 return self._json(app.store.settings())
-            if path == "/api/system":
-                return self._json(app.backend.info())
-            if path == "/api/audio":
-                return self._json(app.backend.audio())
+            simple = {
+                "/api/system": app.backend.info,
+                "/api/audio": app.backend.audio,
+                "/api/storage": app.backend.storage,
+                "/api/bluetooth": app.backend.bluetooth,
+                "/api/displays": app.backend.displays,
+                "/api/timedate": app.backend.timedate,
+                "/api/timezones": app.backend.timezones,
+                "/api/updates": app.backend.updates,
+                "/api/modules": app.backend.modules,
+            }
+            if path in simple:
+                return self._json(simple[path]())
             if path == "/api/network":
-                return self._json(app.backend.network())
+                return self._json(app.backend.network(rescan="rescan" in q))
             return self._error(HTTPStatus.NOT_FOUND, "not found")
 
         def _api_post(self, path, body):
+            b = app.backend
             if path == "/api/users":
                 return self._json(app.store.add_user(body.get("name"), body.get("color")), HTTPStatus.CREATED)
             parts = path.split("/")
+            if len(parts) == 4 and parts[2] == "users":
+                return self._json(app.store.update_user(parts[3], body.get("name"), body.get("color")))
+            if len(parts) == 5 and parts[2] == "users" and parts[4] == "delete":
+                app.store.delete_user(parts[3])
+                return self._json({"ok": True})
+            if path == "/api/settings/reset":
+                return self._json(app.store.reset_settings())
+            if path == "/api/network/wifi":
+                return self._json(b.wifi_radio(_bool(body, "on")))
+            if path == "/api/network/connect":
+                return self._json(b.wifi_connect(body.get("ssid"), body.get("password") or None))
+            if path == "/api/network/disconnect":
+                return self._json(b.net_disconnect(body.get("device")))
+            if path == "/api/network/forget":
+                return self._json(b.net_forget(body.get("name")))
+            if path == "/api/bluetooth/power":
+                return self._json(b.bt_power(_bool(body, "on")))
+            if path == "/api/bluetooth/scan":
+                return self._json(b.bt_scan())
+            if len(parts) == 4 and parts[2] == "bluetooth":
+                return self._json(b.bt_action(body.get("mac"), parts[3]))
+            if path == "/api/displays":
+                return self._json(b.set_display_mode(body.get("mode")))
+            if path == "/api/timedate":
+                if "timezone" in body:
+                    return self._json(b.set_timezone(body.get("timezone")))
+                return self._json(b.set_ntp(_bool(body, "ntp")))
+            if path == "/api/hostname":
+                return self._json(b.set_hostname(body.get("name")))
+            if len(parts) == 4 and parts[2] == "updates":
+                return self._json(b.update_action(parts[3]))
             if len(parts) == 5 and parts[2] == "games" and parts[4] == "launch":
                 g = app.find_game(parts[3])
                 if not g:
@@ -230,7 +302,12 @@ def make_handler(app):
             if path == "/api/running/stop":
                 return self._json(app.runner.stop())
             if path == "/api/settings":
+                compat = body.get("compat") if isinstance(body.get("compat"), dict) else {}
+                if compat.get("anyps5") is True and not b.modules()["anyps5"]["installed"]:
+                    raise SystemError_("The AnyPS5 module is not installed")
                 s = app.store.update_settings(body)
+                if compat:
+                    app.games(refresh=True)
                 return self._json(s)
             if path == "/api/audio":
                 vol = body.get("volume")
@@ -239,7 +316,10 @@ def make_handler(app):
                 muted = body.get("muted")
                 if muted is not None and not isinstance(muted, bool):
                     raise ValueError("muted must be true or false")
-                return self._json(app.backend.set_audio(vol, muted))
+                out = body.get("output")
+                if out is not None and (not isinstance(out, int) or isinstance(out, bool)):
+                    raise ValueError("output must be a number")
+                return self._json(b.set_audio(vol, muted, out))
             if len(parts) == 4 and parts[2] == "power":
                 return self._json(app.backend.power(parts[3]))
             return self._error(HTTPStatus.NOT_FOUND, "not found")

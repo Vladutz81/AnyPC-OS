@@ -9,7 +9,7 @@ RUN dnf -y install \
       gamescope chromium python3 \
       mesa-dri-drivers mesa-vulkan-drivers vulkan-loader \
       pipewire pipewire-pulseaudio wireplumber \
-      NetworkManager NetworkManager-wifi bluez \
+      NetworkManager NetworkManager-wifi bluez polkit \
       greetd \
       pciutils \
     && dnf clean all
@@ -21,10 +21,15 @@ COPY session/anypc-session session/anypc-session-inner session/anypc-shelld /usr
 COPY session/anypc.desktop /usr/share/wayland-sessions/anypc.desktop
 COPY session/systemd/anypc-shelld.service /usr/lib/systemd/user/anypc-shelld.service
 COPY session/greetd.toml /etc/greetd/config.toml
+COPY session/anypc-update /usr/libexec/anypc-update
+COPY session/systemd/system/ /usr/lib/systemd/system/
+COPY session/polkit/50-anypc.rules /usr/share/polkit-1/rules.d/50-anypc.rules
+COPY session/sysusers/anypc.conf /usr/lib/sysusers.d/anypc.conf
 
-RUN chmod 0755 /usr/bin/anypc-session /usr/bin/anypc-session-inner /usr/bin/anypc-shelld \
+RUN chmod 0755 /usr/bin/anypc-session /usr/bin/anypc-session-inner /usr/bin/anypc-shelld /usr/libexec/anypc-update \
     && sed -i -e '/^VARIANT=/d' -e '/^VARIANT_ID=/d' /usr/lib/os-release \
     && printf 'VARIANT="AnyPC OS"\nVARIANT_ID=anypc\n' >> /usr/lib/os-release \
+    && (getent group anypc >/dev/null || groupadd -r anypc) \
     && systemctl enable greetd.service NetworkManager.service bluetooth.service \
     && systemctl set-default graphical.target \
     && bootc container lint

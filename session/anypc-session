@@ -5,24 +5,49 @@ set -euo pipefail
 
 RUNTIME="${XDG_RUNTIME_DIR:-/tmp}"
 NEXT="$RUNTIME/anypc-next-session"
-rm -f "$NEXT"
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/anypc/session.conf"
 
-# Size gamescope to the display; it picks the native mode when these are unset.
-GS_ARGS=(-e -f --xwayland-count 1)
-[[ -n "${ANYPC_WIDTH:-}" && -n "${ANYPC_HEIGHT:-}" ]] && GS_ARGS+=(-W "$ANYPC_WIDTH" -H "$ANYPC_HEIGHT")
+# Read the display mode chosen in Settings. Only plain numbers are accepted;
+# the file is parsed, never executed.
+read_conf() {
+  ANYPC_WIDTH="" ANYPC_HEIGHT=""
+  [[ -f "$CONF" ]] || return 0
+  local key val
+  while IFS='=' read -r key val; do
+    [[ "$val" =~ ^[0-9]{3,5}$ ]] || continue
+    case "$key" in
+      ANYPC_WIDTH) ANYPC_WIDTH="$val" ;;
+      ANYPC_HEIGHT) ANYPC_HEIGHT="$val" ;;
+    esac
+  done < "$CONF"
+}
 
-if command -v gamescope >/dev/null 2>&1; then
-  gamescope "${GS_ARGS[@]}" -- anypc-session-inner || true
-else
-  echo "anypc-session: gamescope not found, running without it" >&2
-  anypc-session-inner || true
-fi
-
-# "Switch to desktop" from the power menu leaves a flag behind.
-if [[ -f "$NEXT" && "$(cat "$NEXT")" == "desktop" ]]; then
+while true; do
   rm -f "$NEXT"
-  for s in startplasma-wayland gnome-session; do
-    if command -v "$s" >/dev/null 2>&1; then exec "$s"; fi
-  done
-  echo "anypc-session: no desktop session installed" >&2
-fi
+  read_conf
+  # gamescope picks the display's native mode unless a size is given.
+  GS_ARGS=(-e -f --xwayland-count 1)
+  if [[ -n "$ANYPC_WIDTH" && -n "$ANYPC_HEIGHT" ]]; then
+    GS_ARGS+=(-W "$ANYPC_WIDTH" -H "$ANYPC_HEIGHT")
+  fi
+
+  if command -v gamescope >/dev/null 2>&1; then
+    gamescope "${GS_ARGS[@]}" -- anypc-session-inner || true
+  else
+    echo "anypc-session: gamescope not found, running without it" >&2
+    anypc-session-inner || true
+  fi
+
+  next="$( [[ -f "$NEXT" ]] && cat "$NEXT" || true)"
+  rm -f "$NEXT"
+  case "$next" in
+    restart) continue ;;  # "Restart shell" / new display mode
+    desktop)
+      for s in startplasma-wayland gnome-session; do
+        if command -v "$s" >/dev/null 2>&1; then exec "$s"; fi
+      done
+      echo "anypc-session: no desktop session installed" >&2
+      ;;
+  esac
+  break
+done

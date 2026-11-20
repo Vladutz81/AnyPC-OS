@@ -18,6 +18,7 @@ def main(argv=None):
         return 1
     app = App(args.ui, demo=args.demo, port=args.port)
     httpd = serve(app, "127.0.0.1", args.port)
+    app.start_auto_updates()
     print(f"anypc-shelld listening on http://127.0.0.1:{args.port}/" + (" (demo)" if args.demo else ""),
           flush=True)
     try:

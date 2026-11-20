@@ -14,6 +14,9 @@ DEFAULT_SETTINGS = {
     "startup_sound": True,
     "boot_animation": True,
     "auto_updates": True,
+    "clock_24h": True,
+    "rest_after": 30,
+    "overscan": 100,
     "compat": {"steam": True, "native": True, "emulators": True, "anyps5": False},
 }
 
@@ -25,6 +28,14 @@ SETTING_TYPES = {
     "startup_sound": bool,
     "boot_animation": bool,
     "auto_updates": bool,
+    "clock_24h": bool,
+    "rest_after": int,
+    "overscan": int,
+}
+# Settings limited to a fixed set of values.
+SETTING_CHOICES = {
+    "rest_after": (0, 10, 20, 30, 60),
+    "overscan": (100, 97, 95, 93, 90),
 }
 COMPAT_KEYS = ("steam", "native", "emulators", "anyps5")
 USER_COLORS = ("blue", "teal", "violet", "orange")
@@ -57,8 +68,9 @@ class Store:
         settings["compat"] = dict(DEFAULT_SETTINGS["compat"])
         saved = data.get("settings") if isinstance(data.get("settings"), dict) else {}
         for k, t in SETTING_TYPES.items():
-            if isinstance(saved.get(k), t):
-                settings[k] = saved[k]
+            v = saved.get(k)
+            if isinstance(v, t) and not (t is int and isinstance(v, bool)) and v in SETTING_CHOICES.get(k, (v,)):
+                settings[k] = v
         if isinstance(saved.get("compat"), dict):
             for k in COMPAT_KEYS:
                 if isinstance(saved["compat"].get(k), bool):
@@ -99,7 +111,38 @@ class Store:
             self._save()
         return dict(user)
 
+    def update_user(self, user_id, name=None, color=None):
+        with self._lock:
+            u = next((x for x in self._data["users"] if x["id"] == user_id), None)
+            if not u:
+                raise KeyError("unknown user")
+            if name is not None:
+                name = str(name).strip()[:16]
+                if not name:
+                    raise ValueError("name is required")
+                u["name"] = name
+            if color is not None:
+                if color not in USER_COLORS:
+                    raise ValueError("unknown colour")
+                u["color"] = color
+            self._save()
+            return dict(u)
+
+    def delete_user(self, user_id):
+        with self._lock:
+            before = len(self._data["users"])
+            self._data["users"] = [x for x in self._data["users"] if x["id"] != user_id]
+            if len(self._data["users"]) == before:
+                raise KeyError("unknown user")
+            self._save()
+
     # -- settings ----------------------------------------------------------
+    def reset_settings(self):
+        with self._lock:
+            self._data["settings"] = json.loads(json.dumps(DEFAULT_SETTINGS))
+            self._save()
+        return self.settings()
+
     def settings(self):
         with self._lock:
             s = dict(self._data["settings"])
@@ -120,8 +163,11 @@ class Store:
                             raise ValueError(f"invalid compat setting: {ck}")
                         s["compat"][ck] = cv
                 elif k in SETTING_TYPES:
-                    if not isinstance(v, SETTING_TYPES[k]):
+                    t = SETTING_TYPES[k]
+                    if not isinstance(v, t) or (t is int and isinstance(v, bool)):
                         raise ValueError(f"invalid type for {k}")
+                    if k in SETTING_CHOICES and v not in SETTING_CHOICES[k]:
+                        raise ValueError(f"invalid value for {k}")
                     if k == "language":
                         v = v[:8]
                     s[k] = v

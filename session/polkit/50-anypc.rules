@@ -1,0 +1,35 @@
+// AnyPC OS: let the console user change console-level settings without a
+// password prompt (there is no way to type one from the shell UI).
+// Only the local, active session of a member of the "anypc" group qualifies.
+polkit.addRule(function (action, subject) {
+    if (!subject.local || !subject.active || !subject.isInGroup("anypc")) {
+        return polkit.Result.NOT_HANDLED;
+    }
+
+    // Time zone, automatic time, device name.
+    if (action.id == "org.freedesktop.timedate1.set-timezone" ||
+        action.id == "org.freedesktop.timedate1.set-ntp" ||
+        action.id == "org.freedesktop.hostname1.set-hostname" ||
+        action.id == "org.freedesktop.hostname1.set-static-hostname") {
+        return polkit.Result.YES;
+    }
+
+    // Start the AnyPC update units (and nothing else).
+    if (action.id == "org.freedesktop.systemd1.manage-units") {
+        var unit = action.lookup("unit");
+        var verb = action.lookup("verb");
+        if ((unit == "anypc-update-check.service" ||
+             unit == "anypc-update.service" ||
+             unit == "anypc-rollback.service") && verb == "start") {
+            return polkit.Result.YES;
+        }
+    }
+
+    // Wi-Fi and Bluetooth for the console user.
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") == 0 ||
+        action.id.indexOf("org.bluez.") == 0) {
+        return polkit.Result.YES;
+    }
+
+    return polkit.Result.NOT_HANDLED;
+});
