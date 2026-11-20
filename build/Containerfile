@@ -14,6 +14,20 @@ RUN dnf -y install \
       pciutils \
     && dnf clean all
 
+# Boot splash: the AnyPC mark from power-on until the console session starts,
+# and again at shutdown. Rebuild the initramfs so it includes the theme.
+RUN dnf -y install plymouth plymouth-plugin-script plymouth-plugin-label \
+    && dnf clean all
+COPY session/plymouth/anypc /usr/share/plymouth/themes/anypc
+COPY session/plymouth/plymouthd.conf /etc/plymouth/plymouthd.conf
+COPY session/plymouth/dracut.conf /usr/lib/dracut/dracut.conf.d/50-anypc-splash.conf
+COPY session/plymouth/kargs.toml /usr/lib/bootc/kargs.d/10-anypc-splash.toml
+RUN set -e; kver=$(cd /usr/lib/modules && echo *); \
+    test "$(echo "$kver" | wc -w)" -eq 1; \
+    env DRACUT_NO_XATTR=1 dracut --force --no-hostonly --reproducible \
+      /usr/lib/modules/$kver/initramfs.img "$kver"; \
+    lsinitrd /usr/lib/modules/$kver/initramfs.img | grep -q 'plymouth/themes/anypc/anypc.script'
+
 # The shell (UI + service) and session scripts.
 COPY shell/ui /usr/share/anypc/shell/ui
 COPY shell/daemon/anypc_shelld /usr/share/anypc/shell/daemon/anypc_shelld

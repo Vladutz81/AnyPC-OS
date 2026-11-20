@@ -18,7 +18,7 @@
 - [ ] CI: build the bootable image
 
 ## M2 — Real hardware
-- [ ] Boot splash (Plymouth theme with the AnyPC mark)
+- [x] Boot splash (Plymouth theme with the AnyPC mark)
 - [x] Wi-Fi connection from Settings (network list + on-screen keyboard)
 - [x] Bluetooth pairing from Settings
 - [x] Full settings: display, sound output, date & time, device name, storage,
