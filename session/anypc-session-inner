@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Runs inside gamescope: starts the shell service, then the shell UI in a kiosk
-# browser. Games started by the service inherit this display, so they open
-# on top of the shell; closing a game brings the shell back.
+# Starts the shell service and kiosk browser in the active compositor.
 set -euo pipefail
 
 PORT="${ANYPC_PORT:-7700}"
@@ -29,10 +27,15 @@ if [[ -z "$BROWSER" ]]; then
   exit 1
 fi
 
+BROWSER_ARGS=()
+if [[ "${ANYPC_SOFTWARE_KIOSK:-0}" == 1 ]]; then
+  BROWSER_ARGS+=(--ozone-platform=wayland --disable-gpu)
+fi
+
 # Restart the shell if it crashes; stop when it is closed on purpose (exit code 0).
 while true; do
   set +e
-  "$BROWSER" \
+  "$BROWSER" "${BROWSER_ARGS[@]}" \
     --kiosk --app="$URL" \
     --user-data-dir="$DATA/browser" \
     --no-first-run --no-default-browser-check --disable-translate \

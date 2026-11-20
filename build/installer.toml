@@ -1,0 +1,6 @@
+# Keep disk selection and administrator setup in the graphical installer.
+# The installed system provisions its separate console account on first boot.
+[customizations.installer.kickstart]
+contents = """
+graphical
+"""

@@ -3,35 +3,45 @@
 AnyPC OS is built as a **bootable container** on top of Fedora's `bootc` base
 image: the whole OS is one container image, updated atomically, with rollback.
 
-> Status: the Containerfile has not been built in CI yet. Expect to fix package
-> names or paths on the first real build.
+The current build uses Fedora 44 on x86-64. The installer is a pre-alpha build.
 
 ## 1. Build the OS image
 
-Needs Podman on a Linux machine.
+Use rootful Podman on Linux so the build and the ISO generator share the same
+image store. The pinned ISO builder requires an x86-64 CPU with AVX2.
 
 ```sh
-podman build -f build/Containerfile -t localhost/anypc-os:dev .
+sudo podman build -f build/Containerfile -t localhost/anypc-os:dev .
 ```
 
 ## 2. Make an installer ISO or a disk image
 
 Uses [bootc-image-builder](https://github.com/osbuild/bootc-image-builder).
-`build/config.toml` creates the `player` account that the console session logs
-into automatically. Change the password before building.
+The graphical installer requires you to choose the target drive and configure
+administrator credentials. Use a different name from `player` if you create
+an administrator account. The installed OS provisions the password-locked
+`player` account and its home directory on first boot for console autologin.
 
 ```sh
 mkdir -p out
-sudo podman run --rm -it --privileged --pull=newer \
-  --security-opt label=type:unconfined_t \
-  -v ./build/config.toml:/config.toml:ro \
+sudo podman run --rm --privileged \
+  --security-opt label=disable \
+  -v ./build/installer.toml:/config.toml:ro \
   -v ./out:/output \
   -v /var/lib/containers/storage:/var/lib/containers/storage \
-  quay.io/centos-bootc/bootc-image-builder:latest \
-  --type anaconda-iso --local localhost/anypc-os:dev
+  quay.io/centos-bootc/bootc-image-builder@sha256:dab86ee6b46dcade411b37f4e70b07d93b6a06da0dbfec6fe89247a220e0d9f8 \
+  --type anaconda-iso --local --rootfs ext4 --chown "$(id -u):$(id -g)" \
+  localhost/anypc-os:dev
 ```
 
-Use `--type qcow2` instead to get a virtual-machine disk for testing.
+For a preinstalled `qcow2` image, use `--type qcow2` with
+`./build/config.toml` mounted at `/config.toml`. Set your own credentials in
+that configuration before using a preinstalled image.
+
+The [Installer image workflow](https://github.com/Vladutz81/AnyPC-OS/actions/workflows/image.yml)
+builds the ISO on GitHub. Download the `AnyPC-OS-Installer-x86_64` artifact from
+a successful run. Unzip it and verify the ISO against the included `SHA256SUMS`
+before writing it to a USB drive.
 
 ## 3. Try it in a virtual machine
 
@@ -44,7 +54,8 @@ qemu-system-x86_64 -enable-kvm -m 4096 -smp 4 -cpu host \
 ## What happens at boot
 
 1. greetd logs in the `player` account (`session/greetd.toml`).
-2. `anypc-session` starts gamescope.
+2. `anypc-session` starts Gamescope. If it cannot start, Cage opens the shell
+   with software rendering.
 3. Inside it, `anypc-session-inner` starts `anypc-shelld` and opens the shell
    UI in a full-screen browser.
 4. Games launched from the shell open on top of it; quitting a game returns to

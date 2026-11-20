@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# AnyPC OS session: runs the console shell inside gamescope.
+# AnyPC OS session: prefers Gamescope and falls back to a software kiosk.
 # Started by the display manager (greetd autologin) or by hand from a TTY.
 set -euo pipefail
 
 RUNTIME="${XDG_RUNTIME_DIR:-/tmp}"
 NEXT="$RUNTIME/anypc-next-session"
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/anypc/session.conf"
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/anypc"
+mkdir -p "$STATE"
+exec >"$STATE/session.log" 2>&1
 
 # Read the display mode chosen in Settings. Only plain numbers are accepted;
 # the file is parsed, never executed.
@@ -31,11 +34,11 @@ while true; do
     GS_ARGS+=(-W "$ANYPC_WIDTH" -H "$ANYPC_HEIGHT")
   fi
 
-  if command -v gamescope >/dev/null 2>&1; then
-    gamescope "${GS_ARGS[@]}" -- anypc-session-inner || true
-  else
-    echo "anypc-session: gamescope not found, running without it" >&2
-    anypc-session-inner || true
+  if ! command -v gamescope >/dev/null 2>&1 || ! gamescope "${GS_ARGS[@]}" -- anypc-session-inner; then
+    if [[ ! -f "$NEXT" ]] && command -v cage >/dev/null 2>&1; then
+      echo "anypc-session: starting the software kiosk"
+      ANYPC_SOFTWARE_KIOSK=1 WLR_RENDERER=pixman cage -- anypc-session-inner || true
+    fi
   fi
 
   next="$( [[ -f "$NEXT" ]] && cat "$NEXT" || true)"
