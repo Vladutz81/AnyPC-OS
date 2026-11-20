@@ -1,0 +1,59 @@
+name: Installer image
+
+on:
+  push:
+    paths:
+      - '.github/workflows/image.yml'
+      - 'build/**'
+      - 'session/**'
+      - 'shell/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  iso:
+    name: Build x86-64 installer ISO
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Prepare the hosted runner
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends podman xorriso
+          df -h .
+      - name: Build and lint the bootable container
+        run: sudo podman build -f build/Containerfile -t localhost/anypc-os:dev .
+      - name: Generate an offline installer
+        run: |
+          mkdir -p out
+          sudo podman run --rm --privileged \
+            --security-opt label=disable \
+            -v "$PWD/build/installer.toml:/config.toml:ro" \
+            -v "$PWD/out:/output" \
+            -v /var/lib/containers/storage:/var/lib/containers/storage \
+            quay.io/centos-bootc/bootc-image-builder@sha256:dab86ee6b46dcade411b37f4e70b07d93b6a06da0dbfec6fe89247a220e0d9f8 \
+            --type anaconda-iso --rootfs ext4 --chown "$(id -u):$(id -g)" \
+            localhost/anypc-os:dev
+      - name: Verify and checksum the ISO
+        run: |
+          mapfile -t isos < <(find out -type f -name install.iso)
+          test "${#isos[@]}" -eq 1
+          mkdir -p artifacts
+          mv "${isos[0]}" artifacts/AnyPC-OS-Installer-x86_64.iso
+          cd artifacts
+          xorriso -indev AnyPC-OS-Installer-x86_64.iso -report_el_torito plain
+          sha256sum AnyPC-OS-Installer-x86_64.iso > SHA256SUMS
+          sha256sum -c SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: AnyPC-OS-Installer-x86_64
+          path: artifacts/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

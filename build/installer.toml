@@ -1,0 +1,7 @@
+# Keep disk selection in the graphical installer. The console account can
+# only be used through the local autologin session.
+[customizations.installer.kickstart]
+contents = """
+graphical
+user --name=player --lock --groups=video,audio,input,anypc
+"""
