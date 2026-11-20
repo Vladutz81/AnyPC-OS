@@ -17,10 +17,10 @@ sudo podman build -f build/Containerfile -t localhost/anypc-os:dev .
 ## 2. Make an installer ISO or a disk image
 
 Uses [bootc-image-builder](https://github.com/osbuild/bootc-image-builder).
-The ISO uses `build/installer.toml` to provision a password-locked `player`
-account for console autologin. The graphical installer requires you to choose
-the target drive. Set your own administrator credentials during installation
-when the installer prompts you.
+The graphical installer requires you to choose the target drive and configure
+administrator credentials. Use a different name from `player` if you create
+an administrator account. The installed OS provisions the password-locked
+`player` account and its home directory on first boot for console autologin.
 
 ```sh
 mkdir -p out
@@ -54,7 +54,8 @@ qemu-system-x86_64 -enable-kvm -m 4096 -smp 4 -cpu host \
 ## What happens at boot
 
 1. greetd logs in the `player` account (`session/greetd.toml`).
-2. `anypc-session` starts gamescope.
+2. `anypc-session` starts Gamescope. If it cannot start, Cage opens the shell
+   with software rendering.
 3. Inside it, `anypc-session-inner` starts `anypc-shelld` and opens the shell
    UI in a full-screen browser.
 4. Games launched from the shell open on top of it; quitting a game returns to

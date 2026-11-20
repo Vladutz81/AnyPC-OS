@@ -6,7 +6,7 @@ FROM quay.io/fedora/fedora-bootc:${FEDORA}
 
 # Graphics, audio, networking, controllers and the console session.
 RUN dnf -y install \
-      gamescope chromium python3 \
+      gamescope cage chromium python3 \
       mesa-dri-drivers mesa-vulkan-drivers vulkan-loader \
       pipewire pipewire-pulseaudio wireplumber \
       NetworkManager NetworkManager-wifi bluez polkit \
@@ -25,11 +25,14 @@ COPY session/anypc-update /usr/libexec/anypc-update
 COPY session/systemd/system/ /usr/lib/systemd/system/
 COPY session/polkit/50-anypc.rules /usr/share/polkit-1/rules.d/50-anypc.rules
 COPY session/sysusers/anypc.conf /usr/lib/sysusers.d/anypc.conf
+COPY session/tmpfiles/anypc.conf /usr/lib/tmpfiles.d/anypc.conf
 
 RUN chmod 0755 /usr/bin/anypc-session /usr/bin/anypc-session-inner /usr/bin/anypc-shelld /usr/libexec/anypc-update \
     && sed -i -e '/^VARIANT=/d' -e '/^VARIANT_ID=/d' /usr/lib/os-release \
     && printf 'VARIANT="AnyPC OS"\nVARIANT_ID=anypc\n' >> /usr/lib/os-release \
     && (getent group anypc >/dev/null || groupadd -r anypc) \
+    && getent passwd greetd \
+    && command -v agreety \
     && systemctl enable greetd.service NetworkManager.service bluetooth.service \
     && systemctl set-default graphical.target \
     && bootc container lint

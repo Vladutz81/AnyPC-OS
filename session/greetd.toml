@@ -1,11 +1,11 @@
 # greetd: boot straight into AnyPC OS for the "player" account.
-# The account is created at install time (see build/README.md).
+# systemd-sysusers provisions the console account on first boot.
 [terminal]
 vt = 1
 
 [default_session]
 command = "agreety --cmd anypc-session"
-user = "greeter"
+user = "greetd"
 
 [initial_session]
 command = "anypc-session"
