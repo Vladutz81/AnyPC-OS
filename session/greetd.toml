@@ -1,0 +1,12 @@
+# greetd: boot straight into AnyPC OS for the "player" account.
+# The account is created at install time (see build/README.md).
+[terminal]
+vt = 1
+
+[default_session]
+command = "agreety --cmd anypc-session"
+user = "greeter"
+
+[initial_session]
+command = "anypc-session"
+user = "player"

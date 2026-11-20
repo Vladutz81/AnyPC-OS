@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Runs as root from the anypc-update*.service units.
+# Usage: anypc-update check|apply|rollback
+# Writes progress and the bootc status to /run/anypc/update.json for the shell.
+set -uo pipefail
+
+ACTION="${1:-check}"
+DIR=/run/anypc
+OUT="$DIR/update.json"
+mkdir -p "$DIR"
+chmod 0755 "$DIR"
+
+write() { # state, error
+  local status
+  status="$(bootc status --format=json 2>/dev/null || echo '{}')"
+  STATE="$1" ERR="${2:-}" BOOTC="$status" python3 - "$OUT" <<'PY'
+import json, os, sys, time, tempfile
+out = sys.argv[1]
+try:
+    bootc = json.loads(os.environ.get("BOOTC") or "{}")
+except ValueError:
+    bootc = {}
+data = {"state": os.environ["STATE"], "error": os.environ.get("ERR") or None,
+        "checked": int(time.time()), "bootc": bootc}
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(out))
+with os.fdopen(fd, "w") as f:
+    json.dump(data, f)
+os.chmod(tmp, 0o644)
+os.replace(tmp, out)
+PY
+}
+
+case "$ACTION" in
+  check)    write checking;    cmd=(bootc upgrade --check) ;;
+  apply)    write downloading; cmd=(bootc upgrade) ;;
+  rollback) write working;     cmd=(bootc rollback) ;;
+  *) echo "usage: $0 check|apply|rollback" >&2; exit 2 ;;
+esac
+
+if err="$("${cmd[@]}" 2>&1 >/dev/null)"; then
+  case "$ACTION" in
+    check) write idle ;;
+    *)     write restart-needed ;;
+  esac
+else
+  write failed "$(printf '%s' "$err" | tail -n 1 | cut -c1-200)"
+  exit 1
+fi

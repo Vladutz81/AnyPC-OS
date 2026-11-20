@@ -3,12 +3,22 @@
 **An open-source, console-style operating system for ordinary PCs.**
 Boot a regular computer straight into a controller-first, living-room interface — your games, your emulators, one system.
 
-> Status: **pre-alpha / planning.** Nothing here is usable yet. See the [roadmap](docs/ROADMAP.md).
+> Status: **pre-alpha.** The console shell runs (try it in demo mode below); the bootable image is not built yet. See the [roadmap](docs/ROADMAP.md).
+
+## Try the shell
+
+```sh
+cd shell/daemon
+python3 -m anypc_shelld --demo
+```
+
+Then open http://127.0.0.1:7700/ in Chromium or Chrome. Use a gamepad, the arrow keys
+and Enter, or the mouse. Details: [shell/README.md](shell/README.md).
 
 ## Goals
 
 - Run on as many x86_64 PCs as possible (AMD, Intel, NVIDIA) from a USB installer.
-- Boot directly into a console-style launcher, fully usable with a gamepad.
+- Boot directly into a console-style interface, fully usable with a gamepad, keyboard or mouse.
 - Immutable base system with atomic updates and one-click rollback.
 - First-class game support: Steam/Proton, native Linux games, legal emulators.
 - Optional compatibility module for [AnyPS5](https://github.com/boykopovar/AnyPS5) (third-party project, see below).
@@ -18,15 +28,25 @@ Boot a regular computer straight into a controller-first, living-room interface 
 
 ```
 ┌──────────────────────────────────────────┐
-│ AnyPC Launcher  (controller-first UI)     │
+│ Shell UI — console interface, gamepad,    │
+│ keyboard and mouse                        │
+│ anypc-shelld — games, audio, network,     │
+│ power, users, settings                    │
 ├──────────────────────────────────────────┤
-│ Game runtimes: Steam/Proton · emulators · │
-│ AnyPS5 compat layer (optional module)     │
+│ Session: greetd → gamescope → shell       │
 ├──────────────────────────────────────────┤
-│ Base image: Linux (Fedora Atomic-style),  │
-│ Mesa/Vulkan, PipeWire, gamescope          │
+│ Base image: Fedora bootc (atomic updates, │
+│ rollback), Mesa/Vulkan, PipeWire          │
 └──────────────────────────────────────────┘
 ```
+
+| Folder     | What it is                                  |
+|------------|---------------------------------------------|
+| `shell/`   | The console interface and its local service |
+| `session/` | Scripts that boot into the console session  |
+| `build/`   | OS image (Containerfile) and installer notes |
+| `compat/`  | Optional compatibility modules              |
+| `docs/`    | Architecture, roadmap, legal notes          |
 
 Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

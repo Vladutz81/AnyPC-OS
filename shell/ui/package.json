@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "AnyPC OS shell UI (no build step; this file only tells Node the files are ES modules for syntax checks)"
+}
