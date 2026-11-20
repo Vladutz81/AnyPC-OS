@@ -64,6 +64,31 @@ Done when: works in the VM with at least one native game.
       `~/.local/share/anypc/covers/<game-id>.(png|jpg|webp)` picked up by `/api/games/<id>/art`.
 - [ ] Settings or game hub action "Choose cover" from files in that folder.
 
+Agreed design (started by Claude, not yet coded — continue from here):
+- New module `shell/daemon/anypc_shelld/covers.py` (stdlib only). Folders:
+  `covers` = `$XDG_DATA_HOME/anypc/covers` and `screenshots` = `~/Pictures/AnyPC`.
+  In `--demo` use `<config dir>/demo/covers` and `/demo/screenshots`, seeded on start
+  by copying sample pictures from `shell/ui/img/demo/` (original abstract art only).
+- Only `.png .jpg .jpeg .webp`, max 25 MB, no symlinks, no hidden files, and check the
+  file really is that format (magic bytes) before serving or copying. Names are plain
+  file names validated against the folder listing — never a path from the user.
+- Choosing a picture copies it (temp file + `os.replace`) to `covers/<game-id>.<ext>`
+  after deleting other extensions; that file wins over discovered art. Files named
+  like a game id are hidden from the picker list.
+- API: `GET /api/covers` → `{folders, images:[{source,file,mtime,url}]}` (newest first,
+  max 200); `GET /api/covers/<source>/<file>`; `POST /api/games/<id>/cover`
+  `{source,file}`; `POST /api/games/<id>/cover/remove`. Both POSTs return the game.
+- `public_game` gains `hasCover` and `artUrl` (`/api/games/<id>/art?v=<mtime>` so a new
+  cover shows at once, or null). `cover()` in `ui.js` uses `g.artUrl`; class `art` (full
+  bleed) when `hasCover`, `art icon` for desktop icons as today.
+- UI: "Change cover" button in the game hub (`screens/game.js`, new icon `image`) opens
+  a new `pickPicture()` layer in `layers.js`: grid of thumbnails, first tile "Default
+  cover" (removes it), gamepad navigable (`data-scroll`, `data-vtrap`). Empty state
+  explains where to put pictures. Strings in EN + RO.
+- Demo parity in `api.js` (sample pictures from `img/demo/`), unit tests for
+  `covers.py` (name validation, magic bytes, copy/replace/remove, listing filters) and
+  an e2e check (choose a cover → the tile shows an image; default → it goes away).
+
 ## 7. Emulators (legal only)
 - [ ] Detect RetroArch / standalone emulators (already flagged as `source: "emulator"`).
 - [ ] Optional ROM folders the user adds (`~/Games/ROMs/<system>/`), listed as games that
