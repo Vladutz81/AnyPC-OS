@@ -229,7 +229,7 @@ ${hints([["A", t("select")], ["B", t("back")]])}
           else if (u.staged || u.state === "restart-needed") { label = t("restart_to_update", { v: (u.staged && u.staged.version) || "" }); act = "reboot"; val = ""; }
           else if (u.available) { label = t("download_update", { v: u.available.version || "" }); act = "upd-apply"; val = ""; }
           upd = this.btn(act, esc(label), esc(val), busy ? 'aria-busy="true"' : "") +
-            (u.state === "failed" && u.error ? `<p class="note">${esc(u.error)}</p>` : "") +
+            (u.state === "failed" && u.error ? `<p class="note">${esc(t("update_failed"))}</p>` : "") +
             this.toggle("set", t("auto_updates"), s.auto_updates, 'data-k="auto_updates"') +
             (u.rollback ? this.btn("rollback", esc(t("rollback")), esc(u.rollback.version || "")) : "");
         }

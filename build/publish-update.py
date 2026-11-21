@@ -16,18 +16,20 @@ TYPES = {"application/vnd.oci.image.manifest.v1+json",
          "application/vnd.docker.distribution.manifest.v2+json"}
 
 
-def publish(source, webroot):
+def publish(source, webroot, tag):
+    if not re.fullmatch(r"[a-z][a-z0-9_-]{0,31}", tag):
+        raise ValueError("Invalid update tag")
     if source.is_dir():
-        publish_layout(source, webroot)
+        publish_layout(source, webroot, tag)
         return
     with tempfile.TemporaryDirectory(prefix=".publish-", dir=webroot.parent) as staging:
         layout = Path(staging) / "oci"
         subprocess.run(["xorriso", "-osirrox", "on", "-indev", str(source), "-extract",
                         "/container", str(layout)], check=True)
-        publish_layout(layout, webroot)
+        publish_layout(layout, webroot, tag)
 
 
-def publish_layout(layout, webroot):
+def publish_layout(layout, webroot, tag):
     registry = webroot / "v2"
     blobs = registry / "anypc-os/blobs"
     manifests = registry / "anypc-os/manifests"
@@ -67,7 +69,7 @@ def publish_layout(layout, webroot):
         with manifest.open("rb") as source:
             shutil.copyfileobj(source, output)
         os.fchmod(output.fileno(), 0o644)
-    os.replace(output.name, manifests / "stable")
+    os.replace(output.name, manifests / tag)
     print(descriptor["mediaType"], descriptor["digest"])
 
 
@@ -75,5 +77,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, help="installer ISO or its prepared OCI layout")
     parser.add_argument("webroot", type=Path)
+    parser.add_argument("--tag", default="stable")
     args = parser.parse_args()
-    publish(args.source.resolve(strict=True), args.webroot.resolve(strict=True))
+    publish(args.source.resolve(strict=True), args.webroot.resolve(strict=True), args.tag)
