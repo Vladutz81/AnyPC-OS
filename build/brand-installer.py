@@ -39,11 +39,28 @@ def run(*args, **kwargs):
     return subprocess.run(args, check=True, **kwargs)
 
 
-def product_archive(items):
-    product = BRANDING / "product"
+def product_archive(product, items):
     archive = run("cpio", "--quiet", "--null", "-o", "-H", "newc", "--owner=0:0",
                   cwd=product, input=b"\0".join(items) + b"\0", stdout=subprocess.PIPE)
     return gzip.compress(archive.stdout, mtime=0)
+
+
+def install_frontend(stage, root):
+    patches = [
+        ("usr/share/anaconda/tmux.conf", "new-session -d -s anaconda -n main anaconda",
+         'new-session -d -s anaconda -n main "/bin/bash /usr/libexec/anypc-setup/start.sh"'),
+        ("usr/bin/anaconda", "    if not conf.system.can_reboot:",
+         '    if not conf.system.can_reboot or os.environ.get("ANYPC_INSTALL_KEEP_SESSION") == "1":'),
+    ]
+    for path, original, replacement in patches:
+        source = run("unsquashfs", "-cat", stage, path, stdout=subprocess.PIPE, text=True).stdout
+        if source.count(original) != 1:
+            raise ValueError(f"Installer runtime changed in {path}. Review its setup entry point.")
+        target = root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source.replace(original, replacement), encoding="utf-8")
+        if path.startswith("usr/bin/"):
+            target.chmod(0o755)
 
 
 def brand_grub(config):
@@ -55,9 +72,11 @@ def brand_grub(config):
     config = config.replace(stage2[1], VOLUME).replace(product[1], "AnyPC OS")
     config = re.sub(r"Rescue a [^']+ system", "Recover AnyPC OS", config)
     config = re.sub(r"( --class \S+)+(?= \{)", " --class anypc", config)
+    config = config.replace("nomodeset", "nomodeset inst.anypc-native")
     config = config.replace("set timeout=60", "set timeout=10")
     quiet_boot = (
         "rd.systemd.show_status=0 systemd.show_status=0 loglevel=0 "
+        "rd.udev.log_level=crit rd.systemd.log_level=crit systemd.log_level=crit "
         "logo.nologo vt.global_cursor_default=0 rd.plymouth=0 plymouth.enable=0"
     )
     config = re.sub(
@@ -71,7 +90,7 @@ def brand_grub(config):
     english = entry[0].replace("'Install AnyPC OS'", "'Install AnyPC OS (English)'")
     romanian = entry[0].replace("'Install AnyPC OS'", "'Instalează AnyPC OS (română)'")
     romanian = re.sub(r"(?m)^(\s*linux\s+[^\n]+)$", r"\1 inst.lang=ro_RO.UTF-8", romanian)
-    config = config[:entry.start()] + english + "\n\n" + romanian + config[entry.end():]
+    config = config[:entry.start()] + romanian + "\n\n" + english + config[entry.end():]
     start = config.index("\nmenuentry ")
     return config[:start] + GRUB_STYLE + config[start:]
 
@@ -85,7 +104,8 @@ def remaster(source, output):
         extract = []
         for path, name in inputs.items():
             extract.extend(("-extract", path, str(stage / name)))
-        run("xorriso", "-osirrox", "on", "-indev", source, *extract)
+        run("xorriso", "-osirrox", "on", "-indev", source, *extract,
+            "-extract", "/images/install.img", stage / "install.img")
 
         for name in BOOT_CONFIGS.values():
             config = stage / name
@@ -95,14 +115,15 @@ def remaster(source, output):
             "::/EFI/BOOT/grub.cfg")
 
         product = stage / "product.img"
-        product_root = BRANDING / "product"
+        product_root = shutil.copytree(BRANDING / "product", stage / "overlay")
+        install_frontend(stage / "install.img", product_root)
         items = sorted(os.fsencode(path.relative_to(product_root)) for path in product_root.rglob("*"))
-        product.write_bytes(product_archive(items))
+        product.write_bytes(product_archive(product_root, items))
         # Early dracut looks for this stamp before it has mounted product.img.
         # The kernel accepts consecutive initramfs archives.
         with (stage / inputs[initrd]).open("ab") as image:
             image.write(b"\0" * (-image.tell() % 4))
-            image.write(product_archive([b".buildstamp"]))
+            image.write(product_archive(product_root, [b".buildstamp"]))
         files = {**{path: stage / name for path, name in inputs.items()},
                  "/images/product.img": product,
                  f"{BOOT_THEME}/theme.txt": BRANDING / "grub-theme.txt",
@@ -128,7 +149,7 @@ def main():
     source, output = args.source.resolve(), args.output.resolve()
     if not source.is_file() or output.exists() or not output.parent.is_dir():
         parser.error("Provide an existing source ISO and a new output ISO in an existing directory.")
-    for tool in ("cpio", "xorriso", "mcopy", "implantisomd5", "checkisomd5"):
+    for tool in ("cpio", "unsquashfs", "xorriso", "mcopy", "implantisomd5", "checkisomd5"):
         if not shutil.which(tool):
             parser.error(f"Required tool missing: {tool}")
     remaster(source, output)

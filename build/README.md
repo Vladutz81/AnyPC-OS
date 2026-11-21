@@ -35,7 +35,7 @@ sudo podman run --rm --privileged \
 ```
 
 Apply the AnyPC OS boot menu, installer theme and product name before distributing
-the ISO. Install `cpio`, `xorriso`, `mtools`, and `isomd5sum` on the build host.
+the ISO. Install `cpio`, `xorriso`, `mtools`, `squashfs-tools`, and `isomd5sum` on the build host.
 Use the `install.iso` produced in the `out` tree as the first argument:
 
 ```sh
@@ -44,7 +44,12 @@ python3 build/brand-installer.py out/bootiso/install.iso out/AnyPC-OS-Installer-
 
 The branding step updates both GRUB menus and the boot configuration in the EFI
 partition, adds the installer product overlay and verifies the media checksum.
-The boot menu offers English and Romanian installation, plus recovery options.
+The default boot opens AnyPC Setup in Romanian. English is available in the menu
+and in the wizard. Select a dedicated disk, choose automatic partitioning or size
+the boot and swap partitions, then create the local administrator. Review the
+drive model, device and capacity before confirming erasure of the entire selected
+drive. The offline installation engine deploys the embedded system. Setup displays
+progress and waits for an explicit restart. Recovery is available from the boot menu.
 The machine's firmware controls its own screen before booting the installer.
 
 For a preinstalled `qcow2` image, use `--type qcow2` with

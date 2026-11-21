@@ -8,6 +8,10 @@ step() { printf '\n== %s\n' "$*"; }
 step "Daemon unit tests"
 (cd shell/daemon && python3 -m unittest discover -s tests)
 
+step "Offline installer storage plan"
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/check_installer.py
+bash -n build/branding/product/usr/libexec/anypc-setup/start.sh
+
 step "Shell scripts syntax"
 for f in session/anypc-session session/anypc-session-inner session/anypc-shelld session/anypc-update; do
   bash -n "$f"

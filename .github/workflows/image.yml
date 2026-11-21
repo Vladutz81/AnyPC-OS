@@ -25,7 +25,7 @@ jobs:
         run: |
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends podman xorriso cpio mtools isomd5sum
+          sudo apt-get install -y --no-install-recommends podman xorriso cpio squashfs-tools mtools isomd5sum
           df -h .
       - name: Build and lint the bootable container
         run: sudo podman build -f build/Containerfile -t localhost/anypc-os:dev .
