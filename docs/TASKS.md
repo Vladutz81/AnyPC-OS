@@ -23,23 +23,32 @@ Physical hardware validation is pending.
 Done when: CI is green on the PR that adds it, and a deliberately broken test makes it fail.
 
 ## 2. Build the OS image in CI
-- [ ] `.github/workflows/image.yml`: build `build/Containerfile` with Podman/Buildah
+- [x] `.github/workflows/image.yml`: build `build/Containerfile` with Podman/Buildah
       and push to `ghcr.io/vladutz81/anypc-os` (tags: branch name and `latest` for `main`).
 - [x] Fix whatever the first real build breaks (package names, paths, `bootc container lint`).
-- [ ] Job that produces a `qcow2` and an `anaconda-iso` with bootc-image-builder and
+- [x] Job that produces a `qcow2` and an `anaconda-iso` with bootc-image-builder and
       uploads them as workflow artifacts (manual trigger is enough).
 - [x] `build/README.md` updated with the exact commands that worked.
 
 Done when: an ISO artifact can be downloaded from a workflow run.
 
+Verified by image workflow run 44922541821, including both downloadable artifacts
+and the GHCR branch image. The public 0.1.3 ISO also passed a complete offline
+UEFI installation and first boot in a separate VM.
+
 ## 3. First boot in a virtual machine
 - [x] Script `build/run-vm.sh` that boots the qcow2 in QEMU with virtio-gpu.
 - [ ] Verify: greetd autologin → gamescope → boot animation → setup → home.
-- [ ] Verify real (non-demo) settings in the VM: audio volume, network status,
+- [x] Verify real (non-demo) settings in the VM: audio volume, network status,
       time zone, device name, update check (bootc), restart shell, power off.
-- [ ] Record problems found as new tasks below; fix the blocking ones.
+- [x] Record problems found as new tasks below; fix the blocking ones.
 
 Done when: a screen recording or screenshots of the shell running in the VM are in the PR.
+
+The current QEMU VM reaches the console through the Cage software-rendering
+fallback. Gamescope with an accelerated virtual GPU still needs validation.
+The first-boot local URL filter, update availability reporting and stale device
+name display were fixed during the installation tests. PR #6 includes screenshots.
 
 ## 4. Boot splash
 - [x] Plymouth theme `anypc` (logo mark + subtle pulse, dark navy background) in

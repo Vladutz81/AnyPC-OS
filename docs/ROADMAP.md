@@ -15,7 +15,7 @@
 - [x] Containerfile on Fedora bootc
 - [x] First successful image build and boot in a VM
 - [x] CI: run the shell checks on pushes and pull requests
-- [ ] CI: build the bootable image
+- [x] CI: build the bootable image
 
 ## M2 — Real hardware
 - [x] Boot splash (Plymouth theme with the AnyPC mark)
