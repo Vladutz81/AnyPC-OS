@@ -166,6 +166,20 @@ class SystemParserTests(unittest.TestCase):
         self.assertEqual(st["rollback"]["version"], "0.0.9")
         self.assertIsNone(system.parse_bootc_status({})["booted"])
 
+    def test_update_report_without_bootc_cached_update(self):
+        status = json.loads(json.dumps(BOOTC))
+        status["status"]["booted"]["cachedUpdate"] = None
+        reported = {"digest": "sha256:" + "a" * 64, "version": "0.1.2"}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "update.json"
+            backend = system.Backend(directory)
+            with patch.object(system, "UPDATE_STATUS", path):
+                path.write_text(json.dumps({"bootc": status, "available": reported}), encoding="utf-8")
+                self.assertEqual(backend.updates()["available"], reported)
+                reported["digest"] = system.parse_bootc_status(status)["booted"]["digest"]
+                path.write_text(json.dumps({"bootc": status, "available": reported}), encoding="utf-8")
+                self.assertIsNone(backend.updates()["available"])
+
     def test_session_conf_and_display_mode(self):
         d = tempfile.mkdtemp()
         b = system.Backend(d)

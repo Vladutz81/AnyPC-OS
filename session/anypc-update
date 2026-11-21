@@ -13,14 +13,23 @@ chmod 0755 "$DIR"
 write() { # state, error
   local status
   status="$(bootc status --format=json 2>/dev/null || echo '{}')"
-  STATE="$1" ERR="${2:-}" BOOTC="$status" python3 - "$OUT" <<'PY'
-import json, os, sys, time, tempfile
+  STATE="$1" ERR="${2:-}" CHECK_OUTPUT="${3:-}" BOOTC="$status" python3 - "$OUT" <<'PY'
+import json, os, re, sys, tempfile, time
 out = sys.argv[1]
 try:
     bootc = json.loads(os.environ.get("BOOTC") or "{}")
 except ValueError:
     bootc = {}
+# bootc --check can report an update without persisting it in status.
+report = os.environ.get("CHECK_OUTPUT", "")
+digest = re.search(r"(?m)^\s*Digest:\s*(sha256:[0-9a-f]{64})\s*$", report)
+version = re.search(r"(?m)^[ \t]*Version:[ \t]*([^\r\n]+)", report)
+available = None
+if digest and re.search(r"(?m)^Update available for:", report):
+    name = version[1].strip()[:80] if version else digest[1][:19]
+    available = {"digest": digest[1], "version": name}
 data = {"state": os.environ["STATE"], "error": os.environ.get("ERR") or None,
+        "available": available,
         "checked": int(time.time()), "bootc": bootc}
 fd, tmp = tempfile.mkstemp(dir=os.path.dirname(out))
 with os.fdopen(fd, "w") as f:
@@ -31,18 +40,18 @@ PY
 }
 
 case "$ACTION" in
-  check)    write checking;    cmd=(bootc upgrade --check) ;;
+  check)    write checking;    cmd=(bootc upgrade --quiet --check) ;;
   apply)    write downloading; cmd=(bootc upgrade) ;;
   rollback) write working;     cmd=(bootc rollback) ;;
   *) echo "usage: $0 check|apply|rollback" >&2; exit 2 ;;
 esac
 
-if err="$("${cmd[@]}" 2>&1 >/dev/null)"; then
+if output="$(LC_ALL=C "${cmd[@]}" 2>&1)"; then
   case "$ACTION" in
-    check) write idle ;;
+    check) write idle "" "$output" ;;
     *)     write restart-needed ;;
   esac
 else
-  write failed "$(printf '%s' "$err" | tail -n 1 | cut -c1-200)"
+  write failed "$(printf '%s' "$output" | tail -n 1 | cut -c1-200)"
   exit 1
 fi

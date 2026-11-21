@@ -472,8 +472,14 @@ class Backend:
         except (OSError, ValueError):
             st = {}
         managed = shutil.which("bootc") is not None
+        summary = parse_bootc_status(st.get("bootc"))
+        reported = st.get("available")
+        current = summary.get("booted") or {}
+        if (isinstance(reported, dict) and isinstance(reported.get("digest"), str)
+                and reported["digest"] != current.get("digest")):
+            summary["available"] = reported
         return {"managed": managed, "state": st.get("state", "idle"), "error": st.get("error"),
-                "checked": st.get("checked"), **parse_bootc_status(st.get("bootc"))}
+                "checked": st.get("checked"), **summary}
 
     UPDATE_UNITS = {"check": "anypc-update-check.service", "apply": "anypc-update.service",
                     "rollback": "anypc-rollback.service"}
