@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="560" viewBox="-40 -40 320 320">
+  <!-- The AnyPC OS mark (same geometry as the shell's boot animation), with a soft
+       built-in glow. Drawn for a 2160-pixel-high screen; the theme scales it down. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#B9CCF5"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+  </defs>
+  <g opacity="0.55" filter="url(#glow)" stroke="#8FB2FF" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M162.5 56.4 A85 85 0 1 1 77.5 56.4" stroke-width="10"/>
+    <path d="M90 158 L120 30 L150 158" stroke-width="11"/>
+  </g>
+  <path d="M162.5 56.4 A85 85 0 1 1 77.5 56.4" fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M90 158 L120 30 L150 158" fill="none" stroke="url(#g)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="120" cy="126" r="7" fill="#FFFFFF"/>
+</svg>

@@ -1,0 +1,156 @@
+window,
+.workspace {
+    background-color: #081229;
+    color: #eff4ff;
+}
+
+* {
+    font-family: "Noto Sans", sans-serif;
+    font-size: 14px;
+}
+
+label { color: #eff4ff; }
+
+.rail {
+    background-image: linear-gradient(to bottom, #0d2c78, #06152f 52%, #020718);
+    border-right: 1px solid #263d66;
+    padding: 26px 12px;
+}
+
+.step {
+    color: #9aabcc;
+    padding: 9px 10px;
+    border-radius: 6px;
+}
+
+.step.current {
+    background-color: #20396b;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.step.visited { color: #c3d2f0; }
+
+.title {
+    font-size: 30px;
+    font-weight: bold;
+}
+
+.hint { color: #b9c8e4; }
+
+.caption {
+    color: #c9d7f0;
+    font-weight: bold;
+}
+
+.card {
+    padding: 16px;
+    border: 1px solid #2d446d;
+    border-radius: 9px;
+    background-color: #112244;
+}
+
+.footer {
+    padding: 14px 28px;
+    border-top: 1px solid #263d66;
+    background-color: #08152e;
+}
+
+button {
+    color: #eff4ff;
+    background: #1a3059;
+    border: 1px solid #476188;
+    border-radius: 6px;
+    box-shadow: none;
+    text-shadow: none;
+    padding: 8px 13px;
+}
+
+button:hover { background-color: #264274; }
+
+button.primary {
+    background: #3159c4;
+    border-color: #6689eb;
+    font-weight: bold;
+}
+
+button.primary:hover { background-color: #3f69d5; }
+
+button:disabled,
+button.primary:disabled {
+    color: #a1b1d3;
+    background: #182641;
+    border-color: #344766;
+}
+
+button:disabled label { color: #a1b1d3; }
+
+entry,
+spinbutton,
+combobox box.linked button {
+    background: #08152e;
+    color: #eff4ff;
+    border: 1px solid #49628b;
+    border-radius: 5px;
+    min-height: 28px;
+}
+
+entry {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+spinbutton entry {
+    background-color: transparent;
+    border: none;
+}
+
+menu,
+popover {
+    background-color: #122345;
+    color: #eff4ff;
+    border: 1px solid #476188;
+}
+
+menuitem:hover { background-color: #244070; }
+
+checkbutton {
+    padding: 8px 0;
+    border-radius: 6px;
+}
+
+checkbutton check {
+    background: #08152e;
+    border: 1px solid #8da9e5;
+    color: #ffffff;
+    margin-right: 9px;
+}
+
+checkbutton check:checked { background-color: #3159c4; }
+
+button:focus,
+entry:focus,
+combobox:focus,
+checkbutton:focus,
+expander:focus {
+    outline-color: #b2c8ff;
+    outline-style: solid;
+    outline-width: 2px;
+    outline-offset: -3px;
+}
+
+.notice { color: #ffd8aa; }
+
+progressbar trough {
+    background: #243859;
+    border: none;
+    min-height: 9px;
+    border-radius: 5px;
+}
+
+progressbar progress {
+    background: #4c7dff;
+    border: none;
+    min-height: 9px;
+    border-radius: 5px;
+}

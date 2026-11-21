@@ -13,6 +13,8 @@ from urllib.parse import urlsplit, parse_qs
 
 from . import __version__, OS_NAME, OS_VERSION
 from . import games as games_mod
+from .catalog import Catalog
+from .game_sandbox import command as sandbox_game
 from .store import Store
 from .system import Backend, DemoBackend, SystemError_, demo_games
 
@@ -42,7 +44,8 @@ class Runner:
                 raise RuntimeError("a game is already running")
             proc = None
             if not self.demo:
-                proc = subprocess.Popen(games_mod.launch_argv(game), stdin=subprocess.DEVNULL,
+                argv = sandbox_game(game) if game["source"] == "anyps5" else games_mod.launch_argv(game)
+                proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL,
                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                         cwd=game["launch"].get("cwd"),
                                         start_new_session=True)
@@ -96,6 +99,7 @@ class App:
         self.demo = demo
         cfg = os.path.dirname(self.store.path)
         self.backend = DemoBackend(cfg) if demo else Backend(cfg)
+        self.catalog = Catalog(demo)
         self.runner = Runner(self.store, demo=demo)
         self.desktop_dirs, self.steam_roots = desktop_dirs, steam_roots
         self.port = port
@@ -227,6 +231,8 @@ def make_handler(app):
         # -- API --------------------------------------------------------------
         def _api_get(self, path, q):
             plays = app.store.plays()
+            if path == "/api/catalog":
+                return self._json(app.catalog.snapshot())
             if path == "/api/state":
                 return self._json({"os": OS_NAME, "version": OS_VERSION, "daemon": __version__,
                                    "demo": app.demo, "running": app.runner.status()})
@@ -261,6 +267,8 @@ def make_handler(app):
 
         def _api_post(self, path, body):
             b = app.backend
+            if path == "/api/catalog/action":
+                return self._json(app.catalog.start(body.get("id"), body.get("action")), HTTPStatus.ACCEPTED)
             if path == "/api/users":
                 return self._json(app.store.add_user(body.get("name"), body.get("color")), HTTPStatus.CREATED)
             parts = path.split("/")

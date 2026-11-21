@@ -5,6 +5,7 @@ import hashlib
 import os
 import re
 import shlex
+import shutil
 from pathlib import Path
 
 FIELD_CODE = re.compile(r"%[fFuUdDnNickvm]")
@@ -158,7 +159,7 @@ def scan_anyps5(root=None):
     except OSError:
         return games
     for folder in folders:
-        if folder.is_symlink() or not folder.is_dir():
+        if folder.name.startswith(".") or folder.is_symlink() or not folder.is_dir():
             continue
         for shortcut in sorted(folder.glob("*.desktop")):
             executable = shortcut.with_suffix("")
@@ -310,5 +311,6 @@ def _is_steam_shortcut(g):
 def launch_argv(game):
     l = game["launch"]
     if "steam_appid" in l:
-        return ["steam", f"steam://rungameid/{l['steam_appid']}"]
+        prefix = ["steam"] if shutil.which("steam") else ["flatpak", "run", "com.valvesoftware.Steam"]
+        return prefix + [f"steam://rungameid/{l['steam_appid']}"]
     return list(l["argv"])

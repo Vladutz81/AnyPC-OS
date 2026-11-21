@@ -53,9 +53,11 @@ UI falls back to a built-in demo.
 | POST | `/api/hostname` | Device name |
 | GET | `/api/storage` | Drives and free space |
 | GET/POST | `/api/updates` · `/api/updates/check|apply|rollback` | System updates (bootc) |
-| GET | `/api/modules` | Availability of optional modules such as registered AnyPS5 Linux outputs |
+| GET | `/api/catalog` | Curated applications, available imports and current operation |
+| POST | `/api/catalog/action` | Install, open or update a catalog ID, scan USB, or import a detected title |
+| GET | `/api/modules` | Availability of the installed AnyPS5 runtime and registered exports |
 | GET | `/api/system` | Hardware information |
-| POST | `/api/power/<action>` | `suspend`, `reboot`, `poweroff`, `desktop`, `restart-shell` |
+| POST | `/api/power/<action>` | `suspend`, `reboot`, `poweroff`, `restart-shell` |
 
 Actions that need more rights (time zone, device name, updates) are allowed for
 the console user by `session/polkit/50-anypc.rules`; updates run as root in the

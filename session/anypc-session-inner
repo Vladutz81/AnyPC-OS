@@ -6,10 +6,12 @@ PORT="${ANYPC_PORT:-7700}"
 URL="http://127.0.0.1:$PORT/"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/anypc"
 mkdir -p "$DATA"
+# A fresh private profile avoids stale browser locks after a device rename or power loss.
+BROWSER_DATA="$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/anypc-browser.XXXXXX")"
 
 anypc-shelld --port "$PORT" >>"$DATA/shelld.log" 2>&1 &
 SHELLD=$!
-trap 'kill "$SHELLD" 2>/dev/null || true' EXIT
+trap 'kill "$SHELLD" 2>/dev/null || true; rm -rf -- "$BROWSER_DATA"' EXIT
 
 for _ in $(seq 1 50); do
   if (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; then break; fi
@@ -37,7 +39,7 @@ while true; do
   set +e
   "$BROWSER" "${BROWSER_ARGS[@]}" \
     --kiosk --app="$URL" \
-    --user-data-dir="$DATA/browser" \
+    --user-data-dir="$BROWSER_DATA" \
     --no-first-run --no-default-browser-check --disable-translate \
     --disable-features=Translate,MediaRouter --noerrdialogs \
     --autoplay-policy=no-user-gesture-required \
@@ -46,5 +48,7 @@ while true; do
   code=$?
   set -e
   [[ $code -eq 0 ]] && break
+  rm -rf -- "$BROWSER_DATA"
+  BROWSER_DATA="$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/anypc-browser.XXXXXX")"
   sleep 1
 done

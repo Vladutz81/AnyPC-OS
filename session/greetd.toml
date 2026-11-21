@@ -4,8 +4,8 @@
 vt = 1
 
 [default_session]
-command = "agreety --cmd anypc-session"
-user = "greetd"
+command = "anypc-session"
+user = "player"
 
 [initial_session]
 command = "anypc-session"

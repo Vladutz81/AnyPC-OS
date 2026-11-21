@@ -1,3 +1,5 @@
+import { StoreScreen } from "./screens/store.js";
+import { playSound } from "./sounds.js";
 import { api } from "./api.js";
 import { Input, moveFocus, focusables } from "./input.js";
 import { setLang, t } from "./i18n.js";
@@ -11,7 +13,7 @@ import { GameScreen } from "./screens/game.js";
 import { SettingsScreen } from "./screens/settings.js";
 import { ControlCenter } from "./screens/control.js";
 
-export const SCREENS = { home: HomeScreen, library: LibraryScreen, game: GameScreen, settings: SettingsScreen, users: UsersScreen, setup: SetupScreen };
+export const SCREENS = { store: StoreScreen, home: HomeScreen, library: LibraryScreen, game: GameScreen, settings: SettingsScreen, users: UsersScreen, setup: SetupScreen };
 
 class App {
   constructor(stage) {
@@ -37,7 +39,10 @@ class App {
       if (e.target.tagName === "IMG" && e.target.closest(".art")) e.target.remove();
     }, true);
     stage.addEventListener("click", (e) => this.onClick(e));
-    stage.addEventListener("focusin", (e) => ensureVisible(e.target));
+    stage.addEventListener("focusin", (e) => {
+      ensureVisible(e.target);
+      if (this.data.settings?.ui_sounds && document.hasFocus()) playSound("focus");
+    });
     setInterval(() => this.tickClock(), 10000);
     setInterval(() => this.pollRunning(), 3000);
     setInterval(() => this.checkIdle(), 30000);
@@ -199,6 +204,7 @@ class App {
     const b = e.target.closest("[data-act]");
     if (!b) return;
     const act = b.dataset.act;
+    if (this.data.settings?.ui_sounds) playSound(act === "back" ? "back" : "select");
     const owner = this.layers.slice().reverse().find((l) => l.el.contains(b)) || this.top();
     if (act === "back") return this.back();
     if (act === "control") return this.toggleControl();
@@ -247,6 +253,7 @@ class App {
 
   afterBoot() {
     if (!this.data.users.length) this.show("setup", {}, { reset: true });
+    else if (this.data.users.length === 1 && this.data.users[0].id === "installed") this.signIn(this.data.users[0]);
     else this.show("users", {}, { reset: true });
   }
 
@@ -287,6 +294,7 @@ async function start() {
   window.__anypc = app; // handy for debugging from the console
   await app.load();
   const s = app.data.settings;
+  if (s.startup_sound && !new URLSearchParams(location.search).has("noboot")) playSound("start");
   if (s.boot_animation && !s.reduce_motion && !new URLSearchParams(location.search).has("noboot")) {
     const boot = new BootScreen(app);
     app.stack.push(boot);

@@ -1,0 +1,103 @@
+/* The base installer profile loads this stylesheet. */
+@define-color anypc_canvas #edf2fb;
+@define-color anypc_panel #f9fbff;
+@define-color anypc_border #bfcee6;
+@define-color anypc_text #132342;
+@define-color anypc_blue #224da9;
+
+window.background,
+dialog.background,
+AnacondaBaseWindow,
+AnacondaHubWindow,
+AnacondaSpokeWindow {
+    background-color: @anypc_canvas;
+    color: @anypc_text;
+}
+
+entry,
+treeview.view,
+notebook > stack {
+    background-color: @anypc_panel;
+    color: @anypc_text;
+}
+
+entry,
+frame > border,
+notebook > header {
+    border-color: @anypc_border;
+}
+
+treeview.view:selected,
+list row:selected {
+    background-color: @anypc_blue;
+    color: #ffffff;
+}
+
+button:not(.suggested-action):not(.destructive-action) {
+    border-radius: 6px;
+}
+
+link,
+button.link {
+    color: @anypc_blue;
+}
+
+.logo-sidebar {
+    background-color: #020718;
+    background-image: linear-gradient(to bottom, #0d2c78, #071732 49%, #020718);
+    background-repeat: no-repeat;
+    color: #ffffff;
+}
+
+.logo {
+    background-color: transparent;
+    background-image: url("/usr/share/anaconda/pixmaps/anypc/wordmark.svg");
+    background-position: center 24px;
+    background-repeat: no-repeat;
+    background-size: 144px 112px;
+}
+
+.product-logo {
+    background-color: transparent;
+    background-image: none;
+}
+
+#nav-box {
+    background-color: #020718;
+    background-image: linear-gradient(to right, #0d2c78, #020718);
+    background-repeat: no-repeat;
+    color: #ffffff;
+}
+
+#anaconda-name-label {
+    color: #ffffff;
+    font-weight: bold;
+}
+
+#anaconda-distro-label {
+    color: #dbe5ff;
+}
+
+button.suggested-action {
+    background-image: linear-gradient(to bottom, #2751bd, #183b99);
+    border-color: #183b99;
+    color: #ffffff;
+    text-shadow: none;
+}
+
+button.suggested-action:hover {
+    background-image: linear-gradient(to bottom, #315ed4, #2149b5);
+}
+
+button.suggested-action:disabled {
+    background-image: none;
+    background-color: #e4e9f4;
+    border-color: #d1daec;
+    color: #505d74;
+}
+
+progressbar progress {
+    background-color: #315ed4;
+    background-image: none;
+    border-color: #315ed4;
+}

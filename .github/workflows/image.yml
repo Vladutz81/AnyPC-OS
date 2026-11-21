@@ -14,9 +14,12 @@ permissions:
 
 jobs:
   iso:
-    name: Build x86-64 installer ISO
+    name: Build x86-64 installer and VM disk
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 70
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -25,10 +28,14 @@ jobs:
         run: |
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends podman xorriso
+          sudo apt-get install -y --no-install-recommends podman qemu-utils xorriso cpio squashfs-tools mtools isomd5sum
           df -h .
       - name: Build and lint the bootable container
-        run: sudo podman build -f build/Containerfile -t localhost/anypc-os:dev .
+        run: |
+          sudo podman build -f build/Containerfile \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            -t anypc.cubx-romania.ro/anypc-os:stable .
       - name: Generate an offline installer
         run: |
           mkdir -p out
@@ -39,15 +46,18 @@ jobs:
             -v /var/lib/containers/storage:/var/lib/containers/storage \
             quay.io/centos-bootc/bootc-image-builder@sha256:dab86ee6b46dcade411b37f4e70b07d93b6a06da0dbfec6fe89247a220e0d9f8 \
             --type anaconda-iso --rootfs ext4 --chown "$(id -u):$(id -g)" \
-            localhost/anypc-os:dev
-      - name: Verify and checksum the ISO
+            anypc.cubx-romania.ro/anypc-os:stable
+      - name: Brand and verify the installer ISO
         run: |
           mapfile -t isos < <(find out -type f -name install.iso)
           test "${#isos[@]}" -eq 1
           mkdir -p artifacts
-          mv "${isos[0]}" artifacts/AnyPC-OS-Installer-x86_64.iso
+          python3 build/brand-installer.py "${isos[0]}" artifacts/AnyPC-OS-Installer-x86_64.iso
           cd artifacts
-          xorriso -indev AnyPC-OS-Installer-x86_64.iso -report_el_torito plain
+          xorriso -indev AnyPC-OS-Installer-x86_64.iso -report_el_torito plain > boot-catalog.txt
+          cat boot-catalog.txt
+          grep -Eq 'El Torito boot img.*BIOS.* y ' boot-catalog.txt
+          grep -Eq 'El Torito boot img.*UEFI.* y ' boot-catalog.txt
           sha256sum AnyPC-OS-Installer-x86_64.iso > SHA256SUMS
           sha256sum -c SHA256SUMS
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -57,3 +67,45 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+      - name: Generate a preinstalled VM disk
+        run: |
+          mkdir -p out-vm
+          sudo podman run --rm --privileged \
+            --security-opt label=disable \
+            -v "$PWD/build/config.toml:/config.toml:ro" \
+            -v "$PWD/out-vm:/output" \
+            -v /var/lib/containers/storage:/var/lib/containers/storage \
+            quay.io/centos-bootc/bootc-image-builder@sha256:dab86ee6b46dcade411b37f4e70b07d93b6a06da0dbfec6fe89247a220e0d9f8 \
+            --type qcow2 --rootfs ext4 --chown "$(id -u):$(id -g)" \
+            anypc.cubx-romania.ro/anypc-os:stable
+          mapfile -t disks < <(find out-vm -type f -name '*.qcow2')
+          test "${#disks[@]}" -eq 1
+          mkdir -p vm-artifacts
+          mv "${disks[0]}" vm-artifacts/AnyPC-OS-x86_64.qcow2
+          cd vm-artifacts
+          qemu-img check AnyPC-OS-x86_64.qcow2
+          qemu-img info --output=json AnyPC-OS-x86_64.qcow2 > disk-info.json
+          sha256sum AnyPC-OS-x86_64.qcow2 > SHA256SUMS
+          sha256sum -c SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: AnyPC-OS-VM-x86_64
+          path: vm-artifacts/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Publish the bootable container to GHCR
+        if: github.event_name == 'push' && github.ref_type == 'branch'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          tag=$(printf '%s' "$GITHUB_REF_NAME" | LC_ALL=C tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^[.-]+//; s/^(.{128}).*/\1/')
+          if [[ -z "$tag" ]]; then tag="branch-${GITHUB_SHA:0:12}"; fi
+          printf '%s' "$GHCR_TOKEN" | sudo podman login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          sudo podman push --digestfile image-digest.txt anypc.cubx-romania.ro/anypc-os:stable "docker://$image:$tag"
+          if [[ "$GITHUB_REF_NAME" == main ]]; then
+            sudo podman push anypc.cubx-romania.ro/anypc-os:stable "docker://$image:latest"
+          fi
+          sudo podman logout ghcr.io
+          printf 'Published `%s:%s` at `%s`\n' "$image" "$tag" "$(cat image-digest.txt)" >> "$GITHUB_STEP_SUMMARY"

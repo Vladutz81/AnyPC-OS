@@ -136,6 +136,8 @@ ${hints([["A", t("select")], ["B", t("back")]])}
 <button type="button" class="mini" data-act="vol-" aria-label="${esc(t("volume"))} −">−</button><span class="v" style="min-width:3.5rem;justify-content:center">${a.muted ? esc(t("muted")) : a.volume + "%"}</span>
 <button type="button" class="mini" data-act="vol+" aria-label="${esc(t("volume"))} +">+</button></span></div>` +
           this.toggle("mute", t("mute"), a.muted) +
+          this.toggle("set", t("sound_start"), s.startup_sound, 'data-k="startup_sound"') +
+          this.toggle("set", t("sound_ui"), s.ui_sounds, 'data-k="ui_sounds"') +
           ((a.outputs || []).length ? this.btn("output", esc(t("output_device")), esc(out ? out.name : "—")) : "");
       }
       case "network": {
@@ -212,7 +214,6 @@ ${hints([["A", t("select")], ["B", t("back")]])}
         const rest = s.rest_after ? t("after_min", { m: s.rest_after }) : t("never");
         return this.btn("rest", esc(t("rest_after")), esc(rest)) +
           this.btn("restart-shell", esc(t("restart_shell"))) +
-          this.btn("to-desktop", esc(t("to_desktop"))) +
           this.btn("reboot", esc(t("restart"))) +
           this.btn("poweroff", esc(t("turn_off")));
       }
@@ -228,14 +229,14 @@ ${hints([["A", t("select")], ["B", t("back")]])}
           else if (u.staged || u.state === "restart-needed") { label = t("restart_to_update", { v: (u.staged && u.staged.version) || "" }); act = "reboot"; val = ""; }
           else if (u.available) { label = t("download_update", { v: u.available.version || "" }); act = "upd-apply"; val = ""; }
           upd = this.btn(act, esc(label), esc(val), busy ? 'aria-busy="true"' : "") +
-            (u.state === "failed" && u.error ? `<p class="note">${esc(u.error)}</p>` : "") +
+            (u.state === "failed" && u.error ? `<p class="note">${esc(t("update_failed"))}</p>` : "") +
             this.toggle("set", t("auto_updates"), s.auto_updates, 'data-k="auto_updates"') +
             (u.rollback ? this.btn("rollback", esc(t("rollback")), esc(u.rollback.version || "")) : "");
         }
         return this.row(t("os_version"), esc(u.booted && u.booted.version ? `AnyPC OS ${u.booted.version}` : i.os || "AnyPC OS")) + upd +
           this.h2(t("device")) + this.btn("hostname", esc(t("hostname")), esc(i.hostname || "—")) +
           this.row(t("cpu"), esc(i.cpu || "—")) + this.row(t("gpu"), esc((i.gpus || []).join(", ") || "—")) +
-          this.row(t("memory"), esc(bytes(i.memory))) + this.row(t("kernel"), esc(i.kernel || "—")) +
+          this.row(t("memory"), esc(bytes(i.memory))) +
           this.h2(t("reset")) + this.btn("reset", esc(t("reset_settings"))) +
           ((this.app.data.state || {}).demo ? `<p class="note">${esc(t("demo_mode"))}</p>` : "");
       }
@@ -365,7 +366,6 @@ ${hints([["A", t("select")], ["B", t("back")]])}
         return this.paint();
       }
       case "restart-shell": if (await confirm(t("restart_shell"), t("restart_shell_text"), t("restart_shell"))) app.exitShell("restart-shell"); return;
-      case "to-desktop": if (await confirm(t("to_desktop"), t("to_desktop_text"), t("to_desktop"))) app.exitShell("desktop"); return;
       case "reboot": case "poweroff": {
         const label = a === "reboot" ? t("restart") : t("turn_off");
         if (!(await confirm(label, app.data.running.running ? t("game_will_close") : "", label, a === "poweroff"))) return;

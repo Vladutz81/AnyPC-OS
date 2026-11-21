@@ -45,12 +45,6 @@ while true; do
   rm -f "$NEXT"
   case "$next" in
     restart) continue ;;  # "Restart shell" / new display mode
-    desktop)
-      for s in startplasma-wayland gnome-session; do
-        if command -v "$s" >/dev/null 2>&1; then exec "$s"; fi
-      done
-      echo "anypc-session: no desktop session installed" >&2
-      ;;
   esac
   break
 done

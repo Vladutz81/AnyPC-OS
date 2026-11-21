@@ -1,0 +1,5 @@
+[Main]
+Product=AnyPC OS
+Version=0.1
+IsFinal=True
+BugURL=https://github.com/Vladutz81/AnyPC-OS/issues
