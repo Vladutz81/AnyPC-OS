@@ -13,6 +13,7 @@ export function topbar(app, current) {
 <span aria-hidden="true">${mark("1.9rem")}</span>
 <button type="button" class="tab" data-act="go-home" ${current === "home" ? 'aria-current="page"' : ""}>${esc(t("games"))}</button>
 <button type="button" class="tab" data-act="go-library" ${current === "library" ? 'aria-current="page"' : ""}>${esc(t("library"))}</button>
+<button type="button" class="tab" data-act="go-store" ${current === "store" ? 'aria-current="page"' : ""}>${esc(t("store"))}</button>
 </nav>
 <div class="right">
 <button type="button" class="icon-btn" data-act="go-settings" aria-label="${esc(t("settings"))}">${icon("gear")}</button>
@@ -25,6 +26,7 @@ ${clock()}
 export function topbarAct(app, a) {
   if (a === "go-home") { app.goHome(); return true; }
   if (a === "go-library") { app.top().name === "library" ? null : app.show("library"); return true; }
+  if (a === "go-store") { if (app.top().name !== "store") app.show("store"); return true; }
   if (a === "go-settings") { app.show("settings"); return true; }
   if (a === "go-users") { app.show("users", {}, { reset: true }); return true; }
   return false;

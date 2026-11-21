@@ -4,3 +4,6 @@
 name = "player"
 password = "change-me"
 groups = ["wheel", "video", "audio", "input", "anypc"]
+
+[customizations.kernel]
+append = "rhgb quiet"

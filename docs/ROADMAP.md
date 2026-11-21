@@ -36,3 +36,11 @@
 - [ ] Achievements of our own, themes, more languages
 - [ ] Remote play / streaming
 - [ ] Documentation site
+
+## Console delivery
+
+- [x] Bilingual graphical installer with explicit disk confirmation.
+- [x] Curated AnyPC Store, per-user app installation and Steam storefront entry.
+- [x] Original startup and navigation sounds with independent switches.
+- [x] Offline import of compatible unencrypted homebrew through the AnyPS5 runtime.
+- [ ] Validate real GPUs, HDMI audio, wireless controllers and suspend on physical PCs.

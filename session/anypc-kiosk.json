@@ -1,0 +1,17 @@
+{
+  "DeveloperToolsAvailability": 2,
+  "URLBlocklist": [
+    "*"
+  ],
+  "URLAllowlist": [
+    "http://127.0.0.1:7700"
+  ],
+  "BrowserGuestModeEnabled": false,
+  "TranslateEnabled": false,
+  "ExtensionInstallBlocklist": [
+    "*"
+  ],
+  "AllowFileSelectionDialogs": false,
+  "PrintingEnabled": false,
+  "PasswordManagerEnabled": false
+}

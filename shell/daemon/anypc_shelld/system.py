@@ -472,8 +472,14 @@ class Backend:
         except (OSError, ValueError):
             st = {}
         managed = shutil.which("bootc") is not None
+        summary = parse_bootc_status(st.get("bootc"))
+        reported = st.get("available")
+        current = summary.get("booted") or {}
+        if (isinstance(reported, dict) and isinstance(reported.get("digest"), str)
+                and reported["digest"] != current.get("digest")):
+            summary["available"] = reported
         return {"managed": managed, "state": st.get("state", "idle"), "error": st.get("error"),
-                "checked": st.get("checked"), **parse_bootc_status(st.get("bootc"))}
+                "checked": st.get("checked"), **summary}
 
     UPDATE_UNITS = {"check": "anypc-update-check.service", "apply": "anypc-update.service",
                     "rollback": "anypc-rollback.service"}
@@ -491,7 +497,7 @@ class Backend:
 
     # ---------- compatibility modules ----------
     def modules(self):
-        return {"anyps5": {"installed": bool(scan_anyps5())}}
+        return {"anyps5": {"installed": os.path.isfile("/usr/libexec/anypc/anyps5/relinker") or bool(scan_anyps5())}}
 
     # ---------- power ----------
     POWER = {
@@ -506,8 +512,8 @@ class Backend:
             f.write(value + "\n")
 
     def power(self, action):
-        if action in ("desktop", "restart-shell"):
-            self._flag("desktop" if action == "desktop" else "restart")
+        if action == "restart-shell":
+            self._flag("restart")
             return {"ok": True, "action": action, "note": "exit-shell"}
         argv = self.POWER.get(action)
         if not argv:
@@ -709,7 +715,7 @@ class DemoBackend(Backend):
         return {"anyps5": {"installed": True}}
 
     def power(self, action):
-        if action not in ("suspend", "reboot", "poweroff", "desktop", "restart-shell"):
+        if action not in ("suspend", "reboot", "poweroff", "restart-shell"):
             raise ValueError(f"unknown power action: {action}")
         return {"ok": True, "action": action, "demo": True}
 

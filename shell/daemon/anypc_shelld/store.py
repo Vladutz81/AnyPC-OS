@@ -12,12 +12,13 @@ DEFAULT_SETTINGS = {
     "reduce_motion": False,
     "high_contrast": False,
     "startup_sound": True,
+    "ui_sounds": True,
     "boot_animation": True,
     "auto_updates": True,
     "clock_24h": True,
     "rest_after": 30,
     "overscan": 100,
-    "compat": {"steam": True, "native": True, "emulators": True, "anyps5": False},
+    "compat": {"steam": True, "native": True, "emulators": True, "anyps5": True},
 }
 
 # Only these keys may be written through the API, with these types.
@@ -26,6 +27,7 @@ SETTING_TYPES = {
     "reduce_motion": bool,
     "high_contrast": bool,
     "startup_sound": bool,
+    "ui_sounds": bool,
     "boot_animation": bool,
     "auto_updates": bool,
     "clock_24h": bool,
@@ -38,6 +40,7 @@ SETTING_CHOICES = {
     "overscan": (100, 97, 95, 93, 90),
 }
 COMPAT_KEYS = ("steam", "native", "emulators", "anyps5")
+INITIAL_PROFILE = "/etc/anypc/initial-profile.json"
 USER_COLORS = ("blue", "teal", "violet", "orange")
 
 
@@ -50,16 +53,34 @@ class Store:
     def __init__(self, path=None):
         self.path = path or os.path.join(config_dir(), "state.json")
         self._lock = threading.Lock()
-        self._data = self._load()
+        seed = self._initial_profile() if path is None and not os.path.exists(self.path) else None
+        self._data = self._load(seed)
+        if seed:
+            self._save()
+
+    @staticmethod
+    def _initial_profile():
+        try:
+            with open(INITIAL_PROFILE, encoding="utf-8") as stream:
+                seed = json.load(stream)
+            if (isinstance(seed, dict) and isinstance(seed.get("profile"), str)
+                    and 1 <= len(seed["profile"]) <= 16 and seed.get("language") in ("en", "ro")):
+                return {
+                    "users": [{"id": "installed", "name": seed["profile"], "color": USER_COLORS[0]}],
+                    "settings": {"language": seed["language"]},
+                }
+        except (OSError, ValueError):
+            pass
+        return None
 
     # -- persistence -------------------------------------------------------
-    def _load(self):
+    def _load(self, seed):
         data = {}
         try:
             with open(self.path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except (OSError, ValueError):
-            data = {}
+            data = seed or {}
         if not isinstance(data, dict):
             data = {}
         data.setdefault("users", [])

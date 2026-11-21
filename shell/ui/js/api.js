@@ -18,9 +18,9 @@ const DEMO = (() => {
     state: { os: "AnyPC OS", version: "0.1", daemon: "preview", demo: true, running: { running: false } },
     users: [{ id: "u1", name: "Player 1", color: "blue" }],
     games,
-    settings: { language: "en", reduce_motion: false, high_contrast: false, boot_animation: true, auto_updates: true,
+    settings: { language: "en", reduce_motion: false, high_contrast: false, boot_animation: true, startup_sound: true, ui_sounds: true, auto_updates: true,
       clock_24h: true, rest_after: 30, overscan: 100,
-      compat: { steam: true, native: true, emulators: true, anyps5: false } },
+      compat: { steam: true, native: true, emulators: true, anyps5: true } },
     system: { os: "AnyPC OS 0.1 (preview)", hostname: "anypc-preview", kernel: "preview", cpu: "Preview CPU", gpus: ["Preview GPU"], memory: 16 * 1024 ** 3 },
     audio: { available: true, volume: 70, muted: false, outputs: [{ id: 48, name: "HDMI / DisplayPort", default: true }, { id: 52, name: "Speakers", default: false }] },
     network: { available: true, wifiEnabled: true,
@@ -34,6 +34,7 @@ const DEMO = (() => {
     timezones: ["America/New_York", "Asia/Tokyo", "Europe/Berlin", "Europe/Bucharest", "Europe/London", "Europe/Paris", "UTC"],
     storage: [{ mount: "/var", device: "/dev/nvme0n1p3", fs: "btrfs", total: 512 * 1024 ** 3, used: 180 * 1024 ** 3, free: 332 * 1024 ** 3, removable: false }],
     updates: { managed: true, state: "idle", checked: null, booted: { version: "0.1" }, staged: null, rollback: null, available: null },
+    catalog: {items: [["steam","Steam"],["kart","SuperTuxKart"],["vlc","VLC"],["retroarch", "RetroArch", "engine"],["pcsx2", "PCSX2", "engine"],["rpcs3", "RPCS3", "engine"],["xemu", "xemu", "engine"],["ppsspp", "PPSSPP", "engine"],["dolphin", "Dolphin", "engine"],["cemu", "Cemu", "engine"],["melonds", "melonDS", "engine"],["mgba", "mGBA", "engine"],["flycast", "Flycast", "engine"],["mame", "MAME", "engine"],["dosbox", "DOSBox Staging", "engine"],["heroic", "Heroic Games Launcher", "tool"],["moonlight", "Moonlight", "tool"],["protonup", "ProtonUp-Qt", "tool"]].map(([id,name,kind=id]) => ({id,name,description:"store_" + kind,installed:false})), imports:[], job:{state:"idle"}},
     modules: { anyps5: { installed: true } },
     running: { running: false },
   };
@@ -70,6 +71,14 @@ function demo(method, path, body) {
     const key = path.slice(5).split("?")[0];
     if (key in d) return JSON.parse(JSON.stringify(d[key]));
     return {};
+  }
+  if (path === "/api/catalog/action") {
+    if (body.action === "scan" && body.id === "usb") { d.catalog.job = {state:"done", id:"usb", action:"scan"}; return {accepted:true}; }
+    const item = d.catalog.items.find(i => i.id === body.id);
+    if (!item || !["open","install","update"].includes(body.action)) throw new Error("unknown_catalog_action");
+    item.installed = true;
+    d.catalog.job = {state:"done", id:item.id, action:body.action};
+    return {accepted:true};
   }
   if (path === "/api/users") {
     const u = { id: "u" + (d.users.length + 1), name: String(body.name || "").trim().slice(0, 16) || "Player", color: body.color || "blue" };
@@ -143,8 +152,8 @@ function demo(method, path, body) {
   if (path === "/api/timedate") { if (body.timezone) d.timedate.timezone = body.timezone; if ("ntp" in body) d.timedate.ntp = body.ntp; return d.timedate; }
   if (path === "/api/hostname") { d.system.hostname = body.name; return { hostname: body.name }; }
   if (path === "/api/settings/reset") {
-    d.settings = { language: "en", reduce_motion: false, high_contrast: false, boot_animation: true, auto_updates: true, clock_24h: true, rest_after: 30, overscan: 100,
-      compat: { steam: true, native: true, emulators: true, anyps5: false } };
+    d.settings = { language: "en", reduce_motion: false, high_contrast: false, boot_animation: true, startup_sound: true, ui_sounds: true, auto_updates: true, clock_24h: true, rest_after: 30, overscan: 100,
+      compat: { steam: true, native: true, emulators: true, anyps5: true } };
     return d.settings;
   }
   const upm = path.match(/^\/api\/updates\/(check|apply|rollback)$/);
