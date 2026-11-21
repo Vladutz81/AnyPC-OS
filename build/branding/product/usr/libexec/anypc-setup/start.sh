@@ -5,6 +5,7 @@ set -euo pipefail
 cmdline=" $(cat /proc/cmdline) "
 case "$cmdline" in
     *" inst.rescue "*|*" inst.text "*|*" inst.cmdline "*|*" inst.anypc-native "*)
+        tmux set-option status on || true
         exec /usr/bin/anaconda
         ;;
 esac

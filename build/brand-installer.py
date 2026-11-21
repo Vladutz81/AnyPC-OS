@@ -3,6 +3,8 @@
 
 import argparse
 import gzip
+import hashlib
+import json
 import os
 import re
 import shutil
@@ -48,10 +50,21 @@ def product_archive(product, items):
 def install_frontend(stage, root):
     patches = [
         ("usr/share/anaconda/tmux.conf", "new-session -d -s anaconda -n main anaconda",
+         'set-option -g status off\n'
          'new-session -d -s anaconda -n main "/bin/bash /usr/libexec/anypc-setup/start.sh"'),
         ("usr/bin/anaconda", "    if not conf.system.can_reboot:",
          '    if not conf.system.can_reboot or os.environ.get("ANYPC_INSTALL_KEEP_SESSION") == "1":'),
     ]
+    # The console uses a locked service account. Leave native recovery behavior intact.
+    spokes = "usr/lib64/python3.14/site-packages/pyanaconda/ui/tui/spokes"
+    entry = '        """Should the spoke run?"""\n'
+    substitute = entry + (
+        '        import os\n'
+        '        if os.environ.get("ANYPC_INSTALL_KEEP_SESSION") == "1":\n'
+        '            return False\n'
+    )
+    patches.extend((f"{spokes}/{spoke}.py", entry, substitute)
+                   for spoke in ("user", "root_password"))
     for path, original, replacement in patches:
         source = run("unsquashfs", "-cat", stage, path, stdout=subprocess.PIPE, text=True).stdout
         if source.count(original) != 1:
@@ -75,7 +88,7 @@ def brand_grub(config):
     config = config.replace("nomodeset", "nomodeset inst.anypc-native")
     config = config.replace("set timeout=60", "set timeout=10")
     quiet_boot = (
-        "rd.systemd.show_status=0 systemd.show_status=0 loglevel=0 "
+        "console=tty3 rd.systemd.show_status=0 systemd.show_status=0 loglevel=0 "
         "rd.udev.log_level=crit rd.systemd.log_level=crit systemd.log_level=crit "
         "logo.nologo vt.global_cursor_default=0 rd.plymouth=0 plymouth.enable=0"
     )
@@ -95,7 +108,35 @@ def brand_grub(config):
     return config[:start] + GRUB_STYLE + config[start:]
 
 
-def remaster(source, output):
+def system_payload(layout, kickstart):
+    """Verify the optional release payload and keep the offline install source."""
+    manifest, = json.loads((layout / "index.json").read_text())["manifests"]
+    def read_blob(entry):
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", entry["digest"]):
+            raise ValueError("Invalid system image digest")
+        path = layout / "blobs" / "sha256" / entry["digest"][7:]
+        if path.stat().st_size != entry["size"]:
+            raise ValueError("Truncated system image blob")
+        with path.open("rb") as stream:
+            if hashlib.file_digest(stream, "sha256").hexdigest() != entry["digest"][7:]:
+                raise ValueError("System image checksum mismatch")
+        return path
+
+    image = json.loads(read_blob(manifest).read_bytes())
+    config = json.loads(read_blob(image["config"]).read_bytes())
+    if (config["architecture"], config["os"]) != ("amd64", "linux"):
+        raise ValueError("Expected an x86-64 system payload")
+    for layer in image["layers"]:
+        read_blob(layer)
+    reference = "anypc.cubx-romania.ro/anypc-os:stable"
+    script, count = re.subn(r"(?m)^(bootc switch --mutate-in-place --transport registry) \S+$",
+                            lambda m: m[1] + " " + reference, kickstart.read_text())
+    if count != 1 or "ostreecontainer --url=/run/install/repo/container --transport=oci" not in script:
+        raise ValueError("Unrecognized installer payload configuration")
+    kickstart.write_text(script)
+
+
+def remaster(source, output, layout=None):
     with tempfile.TemporaryDirectory(prefix="anypc-iso-", dir=output.parent) as work:
         stage = Path(work)
         esp = "/images/efiboot.img"
@@ -129,6 +170,12 @@ def remaster(source, output):
                  f"{BOOT_THEME}/theme.txt": BRANDING / "grub-theme.txt",
                  f"{BOOT_THEME}/mark.png": BUILD.parent / "session/plymouth/anypc/mark.png"}
         maps = []
+        if layout:
+            ks = stage / "payload.ks"
+            run("xorriso", "-osirrox", "on", "-indev", source, "-extract", "/osbuild-base.ks", ks)
+            system_payload(layout, ks)
+            maps.extend(("-rm_r", "/container", "--"))
+            files.update({"/container": layout, "/osbuild-base.ks": ks})
         for path, file in files.items():
             maps.extend(("-map", str(file), path))
         image = stage / "installer.iso"
@@ -145,6 +192,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--system-oci", type=Path, help="Use a prepared release OCI layout for the system payload")
     args = parser.parse_args()
     source, output = args.source.resolve(), args.output.resolve()
     if not source.is_file() or output.exists() or not output.parent.is_dir():
@@ -152,7 +200,7 @@ def main():
     for tool in ("cpio", "unsquashfs", "xorriso", "mcopy", "implantisomd5", "checkisomd5"):
         if not shutil.which(tool):
             parser.error(f"Required tool missing: {tool}")
-    remaster(source, output)
+    remaster(source, output, args.system_oci.resolve() if args.system_oci else None)
 
 
 if __name__ == "__main__":

@@ -1,2 +1,2 @@
 # Show the AnyPC boot splash instead of kernel messages.
-kargs = ["rhgb", "quiet"]
+kargs = ["rhgb", "quiet", "logo.nologo", "vt.global_cursor_default=0", "systemd.show_status=false", "rd.systemd.show_status=false"]

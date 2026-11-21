@@ -11,16 +11,15 @@ Use rootful Podman on Linux so the build and the ISO generator share the same
 image store. The pinned ISO builder requires an x86-64 CPU with AVX2.
 
 ```sh
-sudo podman build -f build/Containerfile -t localhost/anypc-os:dev .
+sudo podman build -f build/Containerfile -t anypc.cubx-romania.ro/anypc-os:stable .
 ```
 
 ## 2. Make an installer ISO or a disk image
 
 Uses [bootc-image-builder](https://github.com/osbuild/bootc-image-builder).
-The graphical installer requires you to choose the target drive and configure
-administrator credentials. Use a different name from `player` if you create
-an administrator account. The installed OS provisions the password-locked
-`player` account and its home directory on first boot for console autologin.
+The graphical installer asks for a destination and a local AnyPC display name.
+The installed OS provisions its password-locked console service account on first
+boot and opens the profile directly.
 
 ```sh
 mkdir -p out
@@ -30,8 +29,8 @@ sudo podman run --rm --privileged \
   -v ./out:/output \
   -v /var/lib/containers/storage:/var/lib/containers/storage \
   quay.io/centos-bootc/bootc-image-builder@sha256:dab86ee6b46dcade411b37f4e70b07d93b6a06da0dbfec6fe89247a220e0d9f8 \
-  --type anaconda-iso --local --rootfs ext4 --chown "$(id -u):$(id -g)" \
-  localhost/anypc-os:dev
+  --type anaconda-iso --rootfs ext4 --chown "$(id -u):$(id -g)" \
+  anypc.cubx-romania.ro/anypc-os:stable
 ```
 
 Apply the AnyPC OS boot menu, installer theme and product name before distributing
@@ -46,7 +45,7 @@ The branding step updates both GRUB menus and the boot configuration in the EFI
 partition, adds the installer product overlay and verifies the media checksum.
 The default boot opens AnyPC Setup in Romanian. English is available in the menu
 and in the wizard. Select a dedicated disk, choose automatic partitioning or size
-the boot and swap partitions, then create the local administrator. Review the
+the boot and swap partitions, then create the AnyPC profile. Review the
 drive model, device and capacity before confirming erasure of the entire selected
 drive. The offline installation engine deploys the embedded system. Setup displays
 progress and waits for an explicit restart. Recovery is available from the boot menu.
@@ -77,12 +76,36 @@ qemu-system-x86_64 -enable-kvm -m 4096 -smp 4 -cpu host \
 3. Inside it, `anypc-session-inner` starts `anypc-shelld` and opens the shell
    UI in a full-screen browser.
 4. Games launched from the shell open on top of it; quitting a game returns to
-   the shell. "Switch to desktop" in the power menu leaves the console session.
+   the shell. The player remains in the console session.
 
 ## Updating a running system
 
 ```sh
-sudo bootc switch localhost/anypc-os:dev   # first time
+sudo bootc switch anypc.cubx-romania.ro/anypc-os:stable   # first time
 sudo bootc upgrade                          # later
 sudo bootc rollback                         # go back one version
 ```
+
+## Store and system updates
+
+The AnyPC catalog controls which applications the console offers. Packages are
+downloaded from Flathub, with its signing key provided by the pinned repository
+configuration. Steam opens its own storefront and handles Valve accounts and purchases.
+The console account has no administrator group membership.
+
+The x86-64 system update reference is anypc.cubx-romania.ro/anypc-os:stable.
+To publish a tested release on the static update host, run
+
+```sh
+python3 build/publish-update.py out/AnyPC-OS-Installer-x86_64.iso /srv/anypc-preview
+```
+
+The publisher also accepts the same verified OCI layout used to build the ISO.
+Serve /v2/ over HTTPS with GET and HEAD, the OCI manifest media type and the
+Docker-Content-Digest header. Disable compression and content rewriting on
+registry responses. Serve the stable tag with no-store caching. It verifies the config and every layer
+before atomically replacing the stable tag. Older digest-addressed objects stay
+available during concurrent downloads. The installed system can check, stage,
+restart and roll back using its System settings. Publishing credentials remain
+on the release host. The existing base ISO can also be remastered with
+--system-oci and a verified bootable OCI layout.

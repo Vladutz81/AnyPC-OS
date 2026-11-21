@@ -1,13 +1,14 @@
 """Validate a local install plan and run the media's offline installer backend."""
 
+import base64
 import fcntl
 import json
 import os
-import pwd
 import re
 import subprocess
 import tempfile
-from dataclasses import dataclass, field
+import unicodedata
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -16,7 +17,6 @@ PAYLOAD = Path("/run/install/repo/container")
 MEDIA_KICKSTART = Path("/run/install/repo/osbuild-base.ks")
 COMPLETED = RUN_DIR / "completed"
 DISK_NAME = re.compile(r"(?:[svh]d[a-z]+|nvme[0-9]+n[0-9]+|mmcblk[0-9]+)\Z")
-ACCOUNT_NAME = re.compile(r"[a-z][a-z0-9_-]{0,30}\Z")
 LOCALES = {"en": "en_US.UTF-8", "ro": "ro_RO.UTF-8",
            "en_US.UTF-8": "en_US.UTF-8", "ro_RO.UTF-8": "ro_RO.UTF-8"}
 KEYBOARDS = {"us", "ro", "gb", "de", "fr"}
@@ -42,8 +42,7 @@ class Plan:
     mode: str
     boot_mib: int
     swap_mib: int
-    username: str
-    password: str = field(repr=False)
+    profile: str
     locale: str
     timezone: str
     keyboard: str
@@ -87,7 +86,7 @@ def discover_disks():
     return disks
 
 
-def validate_plan(disk, mode, boot_mib, swap_mib, username, password, locale, timezone, keyboard):
+def validate_plan(disk, mode, boot_mib, swap_mib, profile, locale, timezone, keyboard):
     if not isinstance(disk, Disk) or mode not in ("automatic", "custom"):
         raise ValueError("Choose a disk and a partition layout.")
     if mode == "automatic":
@@ -96,27 +95,21 @@ def validate_plan(disk, mode, boot_mib, swap_mib, username, password, locale, ti
         raise ValueError("The partition sizes are outside the supported range.")
     if disk.size < (MIN_ROOT_MIB + boot_mib + swap_mib + 640) * MIB:
         raise ValueError("Leave at least 16 GiB for the system partition.")
-    if not ACCOUNT_NAME.fullmatch(username) or username in {"root", "player", "anypc"}:
-        raise ValueError("Use an account name that starts with a lowercase letter.")
-    try:
-        pwd.getpwnam(username)
-    except KeyError:
-        pass
-    else:
-        raise ValueError("That account name is reserved.")
-    encoded = password.encode("utf-8")
-    if len(password) < 8 or len(encoded) > 256 or any(char in password for char in "\0\r\n"):
-        raise ValueError("Use a password of at least eight characters.")
+    profile = unicodedata.normalize("NFC", profile).strip()
+    if not 1 <= len(profile) <= 16 or any(unicodedata.category(c).startswith("C") for c in profile):
+        raise ValueError("Choose a display name of 1–16 characters.")
     if locale not in LOCALES or timezone not in TIMEZONES or keyboard not in KEYBOARDS:
         raise ValueError("Choose a supported language, time zone and keyboard.")
-    return Plan(disk, mode, boot_mib, swap_mib, username, password, LOCALES[locale], timezone, keyboard)
+    return Plan(disk, mode, boot_mib, swap_mib, profile, LOCALES[locale], timezone, keyboard)
 
 
-def kickstart(plan, hashed_password, uefi):
+def kickstart(plan, uefi):
     """Describe an install restricted to one disk; Anaconda performs the writes."""
     name = Path(plan.disk.path).name
-    if not DISK_NAME.fullmatch(name) or not re.fullmatch(r"\$6\$[./0-9A-Za-z$]+", hashed_password):
-        raise ValueError("The selected disk or administrator credential is invalid.")
+    if not DISK_NAME.fullmatch(name):
+        raise ValueError("The selected disk is invalid.")
+    seed = json.dumps({"profile": plan.profile, "language": plan.locale[:2]}, ensure_ascii=False)
+    encoded_seed = base64.b64encode(seed.encode("utf-8")).decode("ascii")
     lines = [
         "graphical",
         "xconfig --startxonboot",
@@ -126,10 +119,10 @@ def kickstart(plan, hashed_password, uefi):
         f"timezone {plan.timezone} --utc",
         "network --hostname=anypc",
         "rootpw --lock --iscrypted *",
-        f"user --name={plan.username} --groups=wheel --iscrypted --password={hashed_password}",
+        "firstboot --disable",
         f"ignoredisk --only-use={name}",
         f"clearpart --all --initlabel --disklabel=gpt --drives={name}",
-        f'bootloader --boot-drive={name} --append="rhgb quiet"',
+        f'bootloader --boot-drive={name} --append="rhgb quiet logo.nologo systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0"',
         f"%include {MEDIA_KICKSTART}",
     ]
     if plan.mode == "automatic":
@@ -143,7 +136,17 @@ def kickstart(plan, hashed_password, uefi):
         if plan.swap_mib:
             lines.append(f"part swap --fstype=swap --size={plan.swap_mib} --ondisk={name}")
         lines.append(f"part / --fstype=ext4 --size={MIN_ROOT_MIB} --grow --ondisk={name}")
-    lines.extend(("%post --nochroot --erroronfail", f"touch {COMPLETED}", "%end"))
+    lines.extend((
+        "%post --erroronfail",
+        "set -eu",
+        "umask 022",
+        "mkdir -p /etc/anypc",
+        f"printf '%s' '{encoded_seed}' | base64 -d > /etc/anypc/initial-profile.json",
+        "%end",
+        "%post --nochroot --erroronfail",
+        f"touch {COMPLETED}",
+        "%end",
+    ))
     return "\n".join(lines) + "\n"
 
 
@@ -161,12 +164,7 @@ def run_install(plan, on_phase):
 
 
 def _deploy(plan, on_phase):
-    try:
-        hashed = subprocess.check_output(["openssl", "passwd", "-6", "-stdin"],
-                                         input=f"{plan.password}\n", text=True).strip()
-    except (OSError, subprocess.CalledProcessError) as error:
-        raise RuntimeError("Could not prepare the administrator credential.") from error
-    config = kickstart(plan, hashed, Path("/sys/firmware/efi").is_dir())
+    config = kickstart(plan, Path("/sys/firmware/efi").is_dir())
     with tempfile.TemporaryDirectory(dir=RUN_DIR) as directory:
         ks = Path(directory, "install.ks")
         ks.write_text(config, encoding="utf-8")

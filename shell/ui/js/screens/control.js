@@ -41,7 +41,6 @@ export class ControlCenter {
 <button type="button" role="menuitem" data-act="pw" data-v="suspend">${icon("moon")}${esc(t("rest"))}</button>
 <button type="button" role="menuitem" data-act="pw" data-v="reboot">${icon("refresh")}${esc(t("restart"))}</button>
 <button type="button" role="menuitem" data-act="pw" data-v="poweroff">${icon("power")}${esc(t("turn_off"))}</button>
-<button type="button" role="menuitem" data-act="pw" data-v="desktop">${icon("desktop")}${esc(t("to_desktop"))}</button>
 </div></div>`;
   }
 
@@ -92,7 +91,6 @@ export class ControlCenter {
     }
     if (a === "pw") {
       const v = b.dataset.v;
-      if (v === "desktop") return app.exitShell("desktop");
       const res = await api.post(`/api/power/${v}`, {}).catch((e) => ({ error: e.message }));
       if (res && res.demo) app.toast(`${b.textContent.trim()} · ${t("demo_only")}`);
       else if (res && res.error) app.toast(res.error);

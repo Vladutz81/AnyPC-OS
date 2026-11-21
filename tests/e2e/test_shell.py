@@ -138,6 +138,14 @@ async def run(port):
         await press(pg, B)
         await pg.wait_for_timeout(400)
 
+        print("AnyPC Store")
+        await pg.locator(".home [data-act=go-store]").click()
+        await pg.locator(".store-item [data-id=steam][data-op=install]").click()
+        await pg.locator(".store-item [data-id=steam][data-op=open]").wait_for()
+        check(await pg.locator(".store-item").count() == 18, "curated store lists apps and games")
+        await shot(pg, "11-store")
+        await press(pg, B)
+
         print("settings")
         for cat in ["display", "sound", "network", "bluetooth", "controllers", "storage", "users", "compat",
                     "datetime", "power", "system", "access", "language"]:

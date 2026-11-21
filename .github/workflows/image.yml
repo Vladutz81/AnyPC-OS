@@ -28,7 +28,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends podman xorriso cpio squashfs-tools mtools isomd5sum
           df -h .
       - name: Build and lint the bootable container
-        run: sudo podman build -f build/Containerfile -t localhost/anypc-os:dev .
+        run: sudo podman build -f build/Containerfile -t anypc.cubx-romania.ro/anypc-os:stable .
       - name: Generate an offline installer
         run: |
           mkdir -p out
@@ -39,7 +39,7 @@ jobs:
             -v /var/lib/containers/storage:/var/lib/containers/storage \
             quay.io/centos-bootc/bootc-image-builder@sha256:dab86ee6b46dcade411b37f4e70b07d93b6a06da0dbfec6fe89247a220e0d9f8 \
             --type anaconda-iso --rootfs ext4 --chown "$(id -u):$(id -g)" \
-            localhost/anypc-os:dev
+            anypc.cubx-romania.ro/anypc-os:stable
       - name: Brand and verify the installer ISO
         run: |
           mapfile -t isos < <(find out -type f -name install.iso)

@@ -1,7 +1,6 @@
 """AnyPC's graphical front end for the offline installer."""
 
 import os
-import re
 import threading
 from pathlib import Path
 
@@ -18,19 +17,19 @@ from controller import Controller
 WORDMARK = "/usr/share/anaconda/pixmaps/anypc/wordmark.svg"
 MIB = 1024 ** 2
 GIB = 1024 ** 3
-STEPS = ("welcome", "storage", "account", "review", "install")
+STEPS = ("welcome", "storage", "profile", "review", "install")
 LABELS = {
     "welcome": ("Start", "Început"),
     "storage": ("Storage", "Stocare"),
-    "account": ("Administrator", "Administrator"),
+    "profile": ("Profile", "Profil"),
     "review": ("Review", "Verificare"),
     "install": ("Installation", "Instalare"),
     "continue": ("Continue", "Continuă"),
     "back": ("Back", "Înapoi"),
     "start_title": ("Install AnyPC OS", "Instalează AnyPC OS"),
     "start_intro": (
-        "Choose your language, then set up the drive and account for this computer.",
-        "Alege limba, apoi configurează discul și contul pentru acest calculator.",
+        "Choose your language, then set up the drive and profile for this computer.",
+        "Alege limba, apoi configurează discul și profilul pentru acest calculator.",
     ),
     "language": ("Installation language", "Limba instalării"),
     "disk_title": ("Choose a destination", "Alege discul de instalare"),
@@ -48,25 +47,11 @@ LABELS = {
     "boot": ("Boot partition (MiB)", "Partiția de pornire (MiB)"),
     "swap": ("Swap partition (MiB, 0 to skip)", "Partiția swap (MiB, 0 pentru a omite)"),
     "remaining": ("The system partition uses the remaining space.", "Partiția de sistem folosește spațiul rămas."),
-    "admin_title": ("Create your administrator account", "Creează contul de administrator"),
-    "admin_intro": (
-        "Use this account to manage the system after installation.",
-        "Folosește acest cont pentru a administra sistemul după instalare.",
-    ),
-    "username": ("Username", "Nume de utilizator"),
-    "password": ("Password", "Parolă"),
-    "repeat": ("Repeat password", "Confirmă parola"),
+    "profile_title": ("Create your AnyPC profile", "Creează profilul AnyPC"),
+    "profile_intro": ("Your name appears in the console.", "Acest nume apare în consolă."),
+    "profile_name": ("Display name", "Nume de profil"),
     "timezone": ("Time zone", "Fus orar"),
     "keyboard": ("Keyboard layout", "Dispunerea tastaturii"),
-    "invalid_user": (
-        "Enter a username starting with a lowercase letter. Use lowercase letters, numbers, hyphens or underscores.",
-        "Introdu un nume care începe cu literă mică. Folosește litere mici, cifre, cratime sau liniuțe de subliniere.",
-    ),
-    "invalid_pass": (
-        "Use a password with at least eight characters.",
-        "Alege o parolă de cel puțin opt caractere.",
-    ),
-    "password_mismatch": ("The passwords do not match.", "Parolele nu coincid."),
     "review_title": ("Review the installation", "Verifică instalarea"),
     "review_intro": (
         "The selected drive will be erased when installation starts.",
@@ -141,8 +126,7 @@ class Wizard(Gtk.ApplicationWindow):
         self.layout = "automatic"
         self.boot_mib = 2048
         self.swap_mib = 0
-        self.username = ""
-        self.password = ""
+        self.profile = ""
         self.timezone = ("UTC", "Europe/Bucharest")[self.language]
         self.keyboard = ("us", "ro")[self.language]
         self.install_error = None
@@ -186,7 +170,7 @@ class Wizard(Gtk.ApplicationWindow):
 
         getattr(self, "_show_" + page)()
         self.show_all()
-        self.back_button.set_visible(page in {"storage", "account", "review"})
+        self.back_button.set_visible(page in {"storage", "profile", "review"})
         self.action_button.set_visible(page != "install")
 
     def rail(self):
@@ -310,7 +294,7 @@ class Wizard(Gtk.ApplicationWindow):
             child.show_all()
         self.storage_changed()
         self.go_back("welcome")
-        self.primary(lambda *_: self.show_page("account"))
+        self.primary(lambda *_: self.show_page("profile"))
 
     def storage_changed(self, *_):
         selected = self.disk_choice.get_active()
@@ -321,17 +305,11 @@ class Wizard(Gtk.ApplicationWindow):
         self.custom_fields.set_visible(self.layout == "custom")
         self.action_button.set_sensitive(self.disk is not None)
 
-    def _show_account(self):
-        self.heading("admin_title", "admin_intro")
+    def _show_profile(self):
+        self.heading("profile_title", "profile_intro")
         panel = card()
-        self.user_field = Gtk.Entry(text=self.username, max_length=31)
-        self.password_field = Gtk.Entry(text=self.password, visibility=False)
-        self.password_field.set_input_purpose(Gtk.InputPurpose.PASSWORD)
-        self.repeat_field = Gtk.Entry(text=self.password, visibility=False)
-        self.repeat_field.set_input_purpose(Gtk.InputPurpose.PASSWORD)
-        self.field(panel, "username", self.user_field)
-        self.field(panel, "password", self.password_field)
-        self.field(panel, "repeat", self.repeat_field)
+        self.profile_field = Gtk.Entry(text=self.profile, max_length=16)
+        self.field(panel, "profile_name", self.profile_field)
         self.body.pack_start(panel, False, False, 0)
         region = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12, homogeneous=True)
         self.timezone_field = Gtk.ComboBoxText()
@@ -358,28 +336,13 @@ class Wizard(Gtk.ApplicationWindow):
     def prepare_review(self, *_):
         self.plan = None
         self.details_box.hide()
-        username = self.user_field.get_text().strip()
-        password = self.password_field.get_text()
-        if not re.fullmatch(r"[a-z][a-z0-9_-]{0,30}", username) or username in {"root", "player"}:
-            self.error_label.set_text(self.t("invalid_user"))
-            self.user_field.grab_focus()
-            return
-        if len(password) < 8:
-            self.error_label.set_text(self.t("invalid_pass"))
-            self.password_field.grab_focus()
-            return
-        if password != self.repeat_field.get_text():
-            self.error_label.set_text(self.t("password_mismatch"))
-            self.repeat_field.grab_focus()
-            return
-        self.username = username
-        self.password = password
+        self.profile = self.profile_field.get_text().strip()
         self.timezone = self.timezone_field.get_active_id()
         self.keyboard = self.keyboard_field.get_active_id()
         try:
             self.plan = backend.validate_plan(
                 self.disk, self.layout, self.boot_mib, self.swap_mib,
-                username, password, self.locale, self.timezone, self.keyboard,
+                self.profile, self.locale, self.timezone, self.keyboard,
             )
         except (OSError, ValueError, RuntimeError) as error:
             self.error_label.set_text(self.t("validation_error"))
@@ -399,8 +362,8 @@ class Wizard(Gtk.ApplicationWindow):
             boot=self.boot_mib, swap=self.swap_mib,
         )
         summary.pack_start(label(layout), False, False, 0)
-        summary.pack_start(label(self.t("account"), "caption"), False, False, 0)
-        summary.pack_start(label(f"{self.username} · {self.timezone}"), False, False, 0)
+        summary.pack_start(label(self.t("profile"), "caption"), False, False, 0)
+        summary.pack_start(label(f"{self.profile} · {self.timezone}"), False, False, 0)
         self.body.pack_start(summary, False, False, 0)
         self.erase = Gtk.CheckButton()
         self.erase.get_style_context().add_class("erase")
@@ -410,14 +373,13 @@ class Wizard(Gtk.ApplicationWindow):
         self.body.pack_start(self.erase, False, False, 0)
         self.action_button.set_sensitive(False)
         self.erase.connect("toggled", lambda button: self.action_button.set_sensitive(button.get_active()))
-        self.go_back("account")
+        self.go_back("profile")
         self.primary(self.begin_install, "install_button")
 
     def begin_install(self, *_):
         if self.page != "review" or not self.erase.get_active() or self.plan is None:
             return
         plan = self.plan
-        self.password = ""
         self.plan = None
         self.show_page("install")
         threading.Thread(target=self.install_worker, args=(plan,), daemon=True).start()

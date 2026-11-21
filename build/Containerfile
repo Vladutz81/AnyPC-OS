@@ -11,8 +11,11 @@ RUN dnf -y install \
       pipewire pipewire-pulseaudio wireplumber \
       NetworkManager NetworkManager-wifi bluez polkit \
       greetd plymouth plymouth-plugin-script plymouth-plugin-label \
-      pciutils \
+      pciutils flatpak xdg-desktop-portal-gtk xdg-desktop-portal-wlr linux-firmware udisks2 \
     && dnf clean all
+
+COPY build/install-compat.sh /usr/libexec/anypc/install-compat.sh
+RUN bash /usr/libexec/anypc/install-compat.sh
 
 # The shell (UI + service) and session scripts.
 COPY shell/ui /usr/share/anypc/shell/ui
@@ -20,6 +23,8 @@ COPY shell/daemon/anypc_shelld /usr/share/anypc/shell/daemon/anypc_shelld
 COPY session/anypc-session session/anypc-session-inner session/anypc-shelld /usr/bin/
 COPY session/anypc.desktop /usr/share/wayland-sessions/anypc.desktop
 COPY session/systemd/anypc-shelld.service /usr/lib/systemd/user/anypc-shelld.service
+COPY session/anypc-kiosk.json /etc/chromium/policies/managed/anypc.json
+COPY session/anypc-logind.conf /usr/lib/systemd/logind.conf.d/50-anypc-console.conf
 COPY session/greetd.toml /etc/greetd/config.toml
 COPY session/anypc-update /usr/libexec/anypc-update
 COPY session/systemd/system/ /usr/lib/systemd/system/
@@ -39,7 +44,6 @@ RUN chmod 0755 /usr/bin/anypc-session /usr/bin/anypc-session-inner /usr/bin/anyp
     && printf 'AnyPC OS\n\n' > /etc/issue \
     && (getent group anypc >/dev/null || groupadd -r anypc) \
     && getent passwd greetd \
-    && command -v agreety \
     && systemctl enable greetd.service NetworkManager.service bluetooth.service \
     && systemctl set-default graphical.target
 

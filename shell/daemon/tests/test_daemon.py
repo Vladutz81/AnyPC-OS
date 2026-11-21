@@ -74,7 +74,10 @@ class ScanTests(unittest.TestCase):
         portal = [g for g in gs if g["name"] == "Portal Thing"]
         self.assertEqual(len(portal), 1)
         self.assertEqual(portal[0]["source"], "steam")
-        self.assertEqual(games.launch_argv(portal[0]), ["steam", "steam://rungameid/400"])
+        with patch("shutil.which", return_value="/usr/bin/steam"):
+            self.assertEqual(games.launch_argv(portal[0]), ["steam", "steam://rungameid/400"])
+        with patch("shutil.which", return_value=None):
+            self.assertEqual(games.launch_argv(portal[0]), ["flatpak", "run", "com.valvesoftware.Steam", "steam://rungameid/400"])
 
     def test_compat_switches(self):
         gs = games.scan_all([self.apps], [self.steam], {"steam": False, "native": True})
@@ -198,6 +201,19 @@ class SystemParserTests(unittest.TestCase):
 
 
 class StoreTests(unittest.TestCase):
+    def test_installer_profile_is_used_once(self):
+        with tempfile.TemporaryDirectory() as work:
+            config = Path(work) / "config"
+            seed = Path(work) / "initial-profile.json"
+            seed.write_text('{"profile":"Irina","language":"ro"}', encoding="utf-8")
+            with patch("anypc_shelld.store.config_dir", return_value=str(config)), \
+                    patch("anypc_shelld.store.INITIAL_PROFILE", str(seed)):
+                store = Store()
+                self.assertEqual(store.users()[0]["name"], "Irina")
+                self.assertEqual(store.settings()["language"], "ro")
+                store.delete_user("installed")
+                self.assertEqual(Store().users(), [])
+
     def test_settings_validation_and_persistence(self):
         path = os.path.join(tempfile.mkdtemp(), "state.json")
         s = Store(path)
@@ -298,6 +314,14 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(st, 400)
         st, a = self.req("/api/audio", {"volume": 150})
         self.assertEqual(a["volume"], 100)
+
+    def test_store_only_installs_known_apps_and_no_desktop_exit(self):
+        self.assertEqual(self.req("/api/power/desktop", {})[0], 400)
+        self.assertEqual(self.req("/api/catalog/action", {"action": "install", "id": "/tmp/file"})[0], 400)
+        self.assertEqual(self.req("/api/catalog/action", {"action": "install", "id": "steam"})[0], 202)
+        state = self.req("/api/catalog")[1]
+        self.assertEqual(state["job"]["state"], "done")
+        self.assertTrue(next(i["installed"] for i in state["items"] if i["id"] == "steam"))
 
     def test_anyps5_demo_can_be_enabled_and_launched(self):
         self.assertTrue(self.req("/api/modules")[1]["anyps5"]["installed"])

@@ -9,9 +9,9 @@ Working in demo mode and covered by tests: boot animation, profiles, first-time
 setup, home, library, game hub, control center, full settings (display, sound,
 network, Bluetooth, controllers, storage, users, compatibility, date & time, power,
 system updates, accessibility, language), on-screen keyboard, gamepad / keyboard /
-mouse navigation, English + Romanian. Session scripts, polkit rule, update units and
-a Fedora bootc Containerfile exist but **the OS image has never been built or
-booted**. Nothing has been tested on real hardware yet.
+mouse navigation, English + Romanian. Session scripts, polkit rule, update units and a Fedora bootc image. A bootable ISO has been built and the graphical
+installer has completed an offline UEFI installation on a virtual disk.
+Physical hardware validation is pending.
 
 ---
 
@@ -25,10 +25,10 @@ Done when: CI is green on the PR that adds it, and a deliberately broken test ma
 ## 2. Build the OS image in CI
 - [ ] `.github/workflows/image.yml`: build `build/Containerfile` with Podman/Buildah
       and push to `ghcr.io/vladutz81/anypc-os` (tags: branch name and `latest` for `main`).
-- [ ] Fix whatever the first real build breaks (package names, paths, `bootc container lint`).
+- [x] Fix whatever the first real build breaks (package names, paths, `bootc container lint`).
 - [ ] Job that produces a `qcow2` and an `anaconda-iso` with bootc-image-builder and
       uploads them as workflow artifacts (manual trigger is enough).
-- [ ] `build/README.md` updated with the exact commands that worked.
+- [x] `build/README.md` updated with the exact commands that worked.
 
 Done when: an ISO artifact can be downloaded from a workflow run.
 
@@ -75,7 +75,7 @@ Done when: works in the VM with at least one native game.
       negativo17 repo), built in CI.
 
 ## 10. Polish
-- [ ] Startup sound (short, original, CC0 or our own) with the existing setting.
+- [x] Startup sound (short, original, CC0 or our own) with the existing setting.
 - [ ] More languages (add to `i18n.js`; keep keys identical).
 - [ ] Achievements of our own (per game play milestones) shown in the game hub.
 - [ ] Hardware compatibility list in `docs/HARDWARE.md` from real tests.
