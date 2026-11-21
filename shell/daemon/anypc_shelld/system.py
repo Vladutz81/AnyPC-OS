@@ -12,6 +12,7 @@ import os
 import platform
 import re
 import shutil
+import socket
 import subprocess
 import threading
 import time
@@ -194,7 +195,7 @@ class Backend:
             for line in out.splitlines():
                 if re.search(r"VGA compatible controller|3D controller|Display controller", line):
                     gpus.append(line.split(": ", 1)[-1].strip())
-        return {"os": f"{OS_NAME} {OS_VERSION}", "hostname": platform.node(), "kernel": platform.release(),
+        return {"os": f"{OS_NAME} {OS_VERSION}", "hostname": socket.gethostname(), "kernel": platform.release(),
                 "cpu": cpu, "gpus": gpus, "memory": mem_total}
 
     def set_hostname(self, name):

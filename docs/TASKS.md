@@ -33,7 +33,7 @@ Done when: CI is green on the PR that adds it, and a deliberately broken test ma
 Done when: an ISO artifact can be downloaded from a workflow run.
 
 ## 3. First boot in a virtual machine
-- [ ] Script `build/run-vm.sh` that boots the qcow2 in QEMU with virtio-gpu.
+- [x] Script `build/run-vm.sh` that boots the qcow2 in QEMU with virtio-gpu.
 - [ ] Verify: greetd autologin → gamescope → boot animation → setup → home.
 - [ ] Verify real (non-demo) settings in the VM: audio volume, network status,
       time zone, device name, update check (bootc), restart shell, power off.

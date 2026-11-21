@@ -86,10 +86,14 @@ package must grant this repository Actions access before the job can publish.
 ## 3. Try it in a virtual machine
 
 ```sh
-qemu-system-x86_64 -enable-kvm -m 4096 -smp 4 -cpu host \
-  -device virtio-vga-gl -display gtk,gl=on \
-  -drive file=out/qcow2/disk.qcow2,if=virtio
+./build/run-vm.sh out/qcow2/disk.qcow2
 ```
+
+The launcher uses virtio graphics and keeps a private UEFI variable file beside
+the disk. It uses KVM when available and CPU emulation otherwise. Install QEMU
+and OVMF first. Additional QEMU arguments follow `--`, for example
+`./build/run-vm.sh disk.qcow2 -- -display none -serial stdio` for a headless run.
+Use `./build/run-vm.sh --help` for firmware paths and defaults.
 
 ## What happens at boot
 

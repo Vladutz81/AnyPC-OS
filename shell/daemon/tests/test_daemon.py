@@ -166,6 +166,13 @@ class SystemParserTests(unittest.TestCase):
         self.assertEqual(st["rollback"]["version"], "0.0.9")
         self.assertIsNone(system.parse_bootc_status({})["booted"])
 
+    def test_device_name_refreshes_after_rename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            backend = system.Backend(directory)
+            with patch.object(system.socket, "gethostname", side_effect=["anypc", "camera-mea"]):
+                self.assertEqual(backend.info()["hostname"], "anypc")
+                self.assertEqual(backend.info()["hostname"], "camera-mea")
+
     def test_update_report_without_bootc_cached_update(self):
         status = json.loads(json.dumps(BOOTC))
         status["status"]["booted"]["cachedUpdate"] = None
