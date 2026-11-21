@@ -13,12 +13,12 @@
 - [x] Gamepad, keyboard and mouse navigation; English and Romanian
 - [x] Session scripts (greetd → gamescope → shell)
 - [x] Containerfile on Fedora bootc
-- [ ] First successful image build and boot in a VM
+- [x] First successful image build and boot in a VM
 - [x] CI: run the shell checks on pushes and pull requests
 - [ ] CI: build the bootable image
 
 ## M2 — Real hardware
-- [ ] Boot splash (Plymouth theme with the AnyPC mark)
+- [x] Boot splash (Plymouth theme with the AnyPC mark)
 - [x] Wi-Fi connection from Settings (network list + on-screen keyboard)
 - [x] Bluetooth pairing from Settings
 - [x] Full settings: display, sound output, date & time, device name, storage,

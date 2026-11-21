@@ -52,13 +52,36 @@ progress and waits for an explicit restart. Recovery is available from the boot 
 The machine's firmware controls its own screen before booting the installer.
 
 For a preinstalled `qcow2` image, use `--type qcow2` with
-`./build/config.toml` mounted at `/config.toml`. Set your own credentials in
-that configuration before using a preinstalled image.
+`./build/config.toml` mounted at `/config.toml`. The first boot provisions the locked
+console service account and opens local AnyPC profile setup. Profile creation requires only a local display name.
 
 The [Installer image workflow](https://github.com/Vladutz81/AnyPC-OS/actions/workflows/image.yml)
 builds the ISO on GitHub. Download the `AnyPC-OS-Installer-x86_64` artifact from
 a successful run. Unzip it and verify the ISO against the included `SHA256SUMS`
 before writing it to a USB drive.
+
+The same workflow then builds a preinstalled `AnyPC-OS-VM-x86_64` artifact with
+`AnyPC-OS-x86_64.qcow2`, image metadata and a separate `SHA256SUMS`. It runs
+`qemu-img check` before uploading the disk. Both artifacts expire after 14 days.
+The installer and VM disk are generated in separate builder invocations so each
+uses its matching configuration.
+
+After both artifacts are verified, branch pushes publish the bootable container
+to `ghcr.io/vladutz81/anypc-os`. The branch name is lowercased, each run of
+unsupported tag characters becomes a hyphen, leading dots and hyphens are
+removed and the tag is limited to 128 characters. For example,
+`codex/installer-branding` becomes `codex-installer-branding`. An empty result
+uses `branch-` followed by the first 12 commit characters. Pushes to `main`
+also update `latest`. A manual workflow run produces the artifacts. The job uses
+its temporary `GITHUB_TOKEN` with `packages: write` to publish and records the
+registry digest in the run summary. The image carries the source repository and
+commit labels so GHCR can associate it with this repository.
+
+The installed OS uses its configured stable update reference. Stable channel
+promotion follows a separate release validation.
+Package visibility is managed in the GitHub package settings. A pre-existing
+package must grant this repository Actions access before the job can publish.
+
 
 ## 3. Try it in a virtual machine
 

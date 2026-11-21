@@ -1,9 +1,4 @@
-# bootc-image-builder configuration: the account the console session uses.
-# CHANGE THE PASSWORD before building an image you will install.
-[[customizations.user]]
-name = "player"
-password = "change-me"
-groups = ["wheel", "video", "audio", "input", "anypc"]
-
+# Preinstalled VM image. The OS provisions its locked console account at boot.
+# The player creates a local AnyPC profile in the first-start interface.
 [customizations.kernel]
 append = "rhgb quiet"

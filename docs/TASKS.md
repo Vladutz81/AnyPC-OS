@@ -42,7 +42,7 @@ Done when: an ISO artifact can be downloaded from a workflow run.
 Done when: a screen recording or screenshots of the shell running in the VM are in the PR.
 
 ## 4. Boot splash
-- [ ] Plymouth theme `anypc` (logo mark + subtle pulse, dark navy background) in
+- [x] Plymouth theme `anypc` (logo mark + subtle pulse, dark navy background) in
       `session/plymouth/`, installed and selected in the Containerfile.
 
 Done when: the VM shows the AnyPC mark from power-on until the shell's own boot animation.
