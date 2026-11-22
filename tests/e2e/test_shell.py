@@ -154,6 +154,16 @@ async def run(port):
             check(rows > 0, f"settings page '{cat}' has content")
             await shot(pg, f"10-settings-{cat}")
 
+        print("Leonida diagnostics")
+        await open_settings(pg, "compat")
+        await pg.locator('[data-act="leonida-check"]').focus()
+        await press(pg, A)
+        await pg.locator(".pane").get_by_text("11 passed", exact=False).wait_for()
+        modules = await api(pg, "/api/modules")
+        check(modules["leonida"]["checks"]["simulated"], "demo diagnostics are explicitly simulated")
+        check(modules["leonida"]["checks"]["passed"] == 11, "Leonida action reports all native checks")
+        await shot(pg, "12-leonida-diagnostics")
+
         await open_settings(pg, "network")
         await pg.evaluate("document.querySelector('[data-v=\"Home Network\"]').focus()")
         await press(pg, A)

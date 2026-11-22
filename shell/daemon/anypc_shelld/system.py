@@ -19,6 +19,7 @@ import time
 
 from . import OS_NAME, OS_VERSION
 from .games import scan_anyps5
+from .leonida import Leonida
 
 TIMEOUT = 8
 MAC_RE = re.compile(r"^[0-9A-F]{2}(:[0-9A-F]{2}){5}$")
@@ -166,6 +167,7 @@ class Backend:
     def __init__(self, config_dir=None):
         self.config_dir = config_dir or os.path.join(
             os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config"), "anypc")
+        self._leonida = Leonida(demo=self.demo)
         self._bt_scanning_until = 0
         self._lock = threading.Lock()
 
@@ -498,7 +500,15 @@ class Backend:
 
     # ---------- compatibility modules ----------
     def modules(self):
-        return {"anyps5": {"installed": os.path.isfile("/usr/libexec/anypc/anyps5/relinker") or bool(scan_anyps5())}}
+        return {"anyps5": {"installed": os.path.isfile("/usr/libexec/anypc/anyps5/relinker") or bool(scan_anyps5())},
+                "leonida": self._leonida.snapshot()}
+
+    def check_leonida(self):
+        try:
+            self._leonida.start()
+        except FileNotFoundError as exc:
+            raise SystemError_("The Leonida module is not installed") from exc
+        return self.modules()
 
     # ---------- power ----------
     POWER = {
@@ -713,7 +723,7 @@ class DemoBackend(Backend):
         return self.updates()
 
     def modules(self):
-        return {"anyps5": {"installed": True}}
+        return {"anyps5": {"installed": True}, "leonida": self._leonida.snapshot()}
 
     def power(self, action):
         if action not in ("suspend", "reboot", "poweroff", "restart-shell"):

@@ -56,6 +56,10 @@ name display were fixed during the installation tests. PR #6 includes screenshot
 
 Done when: the VM shows the AnyPC mark from power-on until the shell's own boot animation.
 
+- [ ] Remove the remaining visible initrd status text during a normal boot.
+      The 0.1.4 QA capture still shows technical text before the branded shell;
+      theme installation alone does not satisfy the complete visual transition.
+
 ## 5. In-game quick menu
 - [ ] Pressing the guide/Home button while a game runs shows the shell's quick menu
       over the game (gamescope overlay/focus switching), with Resume, Quit game,
@@ -88,3 +92,12 @@ Done when: works in the VM with at least one native game.
 - [ ] More languages (add to `i18n.js`; keep keys identical).
 - [ ] Achievements of our own (per game play milestones) shown in the game hub.
 - [ ] Hardware compatibility list in `docs/HARDWARE.md` from real tests.
+
+## 11. Experimental Leonida module
+- [x] Pin and checksum the native source; build and test selected CPU tools in a
+      separate image stage, retaining attribution and corresponding source.
+- [x] Add a fixed asynchronous diagnostic action, demo parity and bilingual status.
+- [ ] Validate accelerated graphics and compatible game execution independently.
+
+Native diagnostic success is not evidence of game compatibility. The selected
+Windows loader is not included. See compat/leonida/README.md.

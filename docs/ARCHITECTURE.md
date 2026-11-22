@@ -49,9 +49,11 @@ desktop.
 
 ## 5. Compatibility modules
 - Steam/Proton, native and Flatpak games are supported by the service today.
-- Emulators and the optional AnyPS5 module are settings switches for now; their
-  integration lands in later milestones. AnyPS5 stays an independent upstream
-  project.
+- The curated catalog installs optional emulators. AnyPS5 imports compatible
+  unencrypted local exports and remains an independent upstream project.
+- Leonida is an independent experimental module. Its fixed native CPU checks run
+  asynchronously without privileges; the UI reports diagnostics, not game or GPU
+  compatibility. See compat/leonida/README.md.
 
 ## 6. Hardware targets
 - Tier 1: x86_64 PCs with AMD or Intel GPUs, UEFI.

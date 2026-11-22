@@ -55,7 +55,8 @@ UI falls back to a built-in demo.
 | GET/POST | `/api/updates` · `/api/updates/check|apply|rollback` | System updates (bootc) |
 | GET | `/api/catalog` | Curated applications, available imports and current operation |
 | POST | `/api/catalog/action` | Install, open or update a catalog ID, scan USB, or import a detected title |
-| GET | `/api/modules` | Availability of the installed AnyPS5 runtime and registered exports |
+| GET | `/api/modules` | AnyPS5 availability, experimental Leonida diagnostics and Wine/Proton presence |
+| POST | `/api/modules/leonida/check` | Start the fixed native diagnostic job; empty body, 202/409/422 outcomes |
 | GET | `/api/system` | Hardware information |
 | POST | `/api/power/<action>` | `suspend`, `reboot`, `poweroff`, `restart-shell` |
 
@@ -68,6 +69,8 @@ requires an `X-AnyPC: 1` header on every POST so web pages cannot drive it.
 State is kept in `~/.config/anypc/state.json`.
 
 For converted Linux applications, see the [AnyPS5 registration guide](../compat/anyps5/README.md).
+
+For the experimental native checks and their limits, see [Leonida diagnostics](../compat/leonida/README.md).
 
 ## Tests
 

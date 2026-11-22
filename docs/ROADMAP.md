@@ -32,6 +32,8 @@
 - [x] Optional library integration for exported AnyPS5 Linux applications
 - [ ] Cover art for non-Steam games
 
+- [x] Experimental pinned Leonida native diagnostics and local status page
+
 ## M4 — Polish
 - [ ] Achievements of our own, themes, more languages
 - [ ] Remote play / streaming

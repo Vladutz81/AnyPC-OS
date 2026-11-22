@@ -169,7 +169,8 @@ class SystemParserTests(unittest.TestCase):
     def test_device_name_refreshes_after_rename(self):
         with tempfile.TemporaryDirectory() as directory:
             backend = system.Backend(directory)
-            with patch.object(system.socket, "gethostname", side_effect=["anypc", "camera-mea"]):
+            with patch.object(system.platform, "release", return_value="test-kernel"), \
+                    patch.object(system.socket, "gethostname", side_effect=["anypc", "camera-mea"]):
                 self.assertEqual(backend.info()["hostname"], "anypc")
                 self.assertEqual(backend.info()["hostname"], "camera-mea")
 
