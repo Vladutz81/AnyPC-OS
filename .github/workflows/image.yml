@@ -7,6 +7,8 @@ on:
       - 'build/**'
       - 'session/**'
       - 'shell/**'
+      - 'compat/leonida/**'
+      - 'scripts/check_leonida_image.py'
   workflow_dispatch:
 
 permissions:
@@ -36,6 +38,13 @@ jobs:
             --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             -t anypc.cubx-romania.ro/anypc-os:stable .
+      - name: Verify the installed native diagnostic API
+        run: |
+          sudo podman run --rm --pull=never --network=none --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,size=64m \
+            --entrypoint python3 \
+            -v "$PWD/scripts/check_leonida_image.py:/verify.py:ro" \
+            anypc.cubx-romania.ro/anypc-os:stable /verify.py
       - name: Generate an offline installer
         run: |
           mkdir -p out

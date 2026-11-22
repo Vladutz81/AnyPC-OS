@@ -20,6 +20,8 @@ if command -v shellcheck >/dev/null 2>&1; then
   shellcheck -S warning session/anypc-session session/anypc-session-inner session/anypc-shelld session/anypc-update
 fi
 
+bash -n build/install-leonida.sh
+
 step "Kiosk browser session"
 python3 scripts/check_session.py
 

@@ -35,7 +35,8 @@ const DEMO = (() => {
     storage: [{ mount: "/var", device: "/dev/nvme0n1p3", fs: "btrfs", total: 512 * 1024 ** 3, used: 180 * 1024 ** 3, free: 332 * 1024 ** 3, removable: false }],
     updates: { managed: true, state: "idle", checked: null, booted: { version: "0.1" }, staged: null, rollback: null, available: null },
     catalog: {items: [["steam","Steam"],["kart","SuperTuxKart"],["vlc","VLC"],["retroarch", "RetroArch", "engine"],["pcsx2", "PCSX2", "engine"],["rpcs3", "RPCS3", "engine"],["xemu", "xemu", "engine"],["ppsspp", "PPSSPP", "engine"],["dolphin", "Dolphin", "engine"],["cemu", "Cemu", "engine"],["melonds", "melonDS", "engine"],["mgba", "mGBA", "engine"],["flycast", "Flycast", "engine"],["mame", "MAME", "engine"],["dosbox", "DOSBox Staging", "engine"],["heroic", "Heroic Games Launcher", "tool"],["moonlight", "Moonlight", "tool"],["protonup", "ProtonUp-Qt", "tool"]].map(([id,name,kind=id]) => ({id,name,description:"store_" + kind,installed:false})), imports:[], job:{state:"idle"}},
-    modules: { anyps5: { installed: true } },
+    modules: { anyps5: { installed: true }, leonida: { installed: true, version: "067d3e8b9718", status: "experimental",
+      wine: true, proton: true, checks: { state: "idle", passed: 0, failed: 0, total: 11, results: [], simulated: true, error: null, checked: null } } },
     running: { running: false },
   };
 })();
@@ -71,6 +72,13 @@ function demo(method, path, body) {
     const key = path.slice(5).split("?")[0];
     if (key in d) return JSON.parse(JSON.stringify(d[key]));
     return {};
+  }
+  if (path === "/api/modules/leonida/check") {
+    const check = d.modules.leonida.checks;
+    if (check.state === "running") throw Object.assign(new Error("A module check is already running"), { api: true });
+    Object.assign(check, { state: "running", passed: 0, failed: 0, error: null, checked: null });
+    setTimeout(() => Object.assign(check, { state: "done", passed: 11, checked: Math.floor(Date.now() / 1000) }), 400);
+    return JSON.parse(JSON.stringify(d.modules));
   }
   if (path === "/api/catalog/action") {
     if (body.action === "scan" && body.id === "usb") { d.catalog.job = {state:"done", id:"usb", action:"scan"}; return {accepted:true}; }

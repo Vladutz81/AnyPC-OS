@@ -83,13 +83,14 @@ ${hints([["A", t("select")], ["B", t("back")]])}
     if (cat !== this.cat) return;
     this.paint();
     if (cat === "datetime") this.timer = setInterval(() => this.paint(), 15000);
-    if (cat === "bluetooth" || cat === "system") this.timer = setInterval(() => this.poll(), 2500);
+    if (cat === "bluetooth" || cat === "system" || cat === "compat") this.timer = setInterval(() => this.poll(), 2500);
   }
 
   async poll() {
     if (this.app.layers.length) return;
     if (this.cat === "bluetooth" && this.d.bt && this.d.bt.scanning) { await this.get("bt", "/api/bluetooth"); this.paint(); }
     if (this.cat === "system" && this.d.upd && /^(checking|downloading|working)$/.test(this.d.upd.state)) { await this.get("upd", "/api/updates"); this.paint(); }
+    if (this.cat === "compat" && this.d.modules && this.d.modules.leonida && this.d.modules.leonida.checks && this.d.modules.leonida.checks.state === "running") { await this.get("modules", "/api/modules"); this.paint(); }
   }
 
   // ---------- rendering ----------
@@ -196,12 +197,29 @@ ${hints([["A", t("select")], ["B", t("back")]])}
         return this.app.data.users.map((u) => `<button type="button" class="srow" data-act="user" data-v="${esc(u.id)}"><span style="display:flex;align-items:center;gap:.9rem">${avatar(u, "2.4rem")}${esc(u.name)}</span><span class="v">${this.app.user && this.app.user.id === u.id ? `<span class="tag ok">${esc(t("signed_in"))}</span>` : ""}${icon("chevron")}</span></button>`).join("") +
           this.btn("add-user", `${icon("plus")} ${esc(t("add_user"))}`);
       case "compat": {
-        const c = s.compat, m = d.modules || { anyps5: { installed: false } };
-        return this.toggle("compat", t("compat_steam"), c.steam, 'data-k="steam"') +
+        const c = s.compat, m = d.modules || {}, l = m.leonida || { installed: false };
+        let h = this.toggle("compat", t("compat_steam"), c.steam, 'data-k="steam"') +
           this.toggle("compat", t("compat_native"), c.native, 'data-k="native"') +
           this.toggle("compat", t("compat_emulators"), c.emulators, 'data-k="emulators"') +
-          (m.anyps5.installed ? this.toggle("compat", t("compat_anyps5"), c.anyps5, 'data-k="anyps5"') : this.row(t("compat_anyps5"), esc(t("not_installed")))) +
-          `<p class="note">${esc(t("compat_note"))}</p>`;
+          (m.anyps5 && m.anyps5.installed ? this.toggle("compat", t("compat_anyps5"), c.anyps5, 'data-k="anyps5"') : this.row(t("compat_anyps5"), esc(t("not_installed")))) +
+          `<p class="note">${esc(t("compat_note"))}</p>` + this.h2(t("leonida_title")) +
+          `<p class="note">${esc(t("leonida_note"))}</p><p class="note">${esc(t("leonida_cpu_note"))}</p>`;
+        if (!l.installed) return h + this.row(t("leonida_module"), esc(t("not_installed")));
+        const check = l.checks || { state: "idle" }, busy = check.state === "running";
+        const runtime = [l.wine && "Wine", l.proton && "Proton"].filter(Boolean).join(" · ");
+        h += this.row(t("leonida_version"), esc(l.version || "—")) +
+          this.row(t("leonida_windows_runtime"), esc(runtime || t("not_installed"))) +
+          this.btn("leonida-check", esc(t(busy ? "leonida_running" : "leonida_check")), "", busy ? 'disabled aria-busy="true"' : "");
+        if (check.state === "done" || check.state === "failed") {
+          h += this.row(t("leonida_results"), esc(t("leonida_counts", { passed: check.passed || 0, failed: check.failed || 0 })));
+          if (check.error) {
+            const code = ["failed", "timeout", "unavailable"].includes(check.error) ? check.error : "failed";
+            h += `<p class="note">${esc(t("leonida_error_" + code))}</p>`;
+          }
+        }
+        if (check.checked) h += `<p class="note">${esc(t("last_checked", { d: new Date(check.checked * 1000).toLocaleString(getLang(), { dateStyle: "short", timeStyle: "short" }) }))}</p>`;
+        if ((this.app.data.state || {}).demo) h += `<p class="note">${esc(t("leonida_demo"))}</p>`;
+        return h;
       }
       case "datetime": {
         const td = d.td;
@@ -351,6 +369,7 @@ ${hints([["A", t("select")], ["B", t("back")]])}
         return this.paint();
       }
       case "set": await app.saveSettings({ [b.dataset.k]: b.getAttribute("aria-checked") !== "true" }); return this.paint();
+      case "leonida-check": await this.post("/api/modules/leonida/check", {}, "modules"); return this.paint();
       // date & time
       case "ntp": await this.post("/api/timedate", { ntp: !(d.td && d.td.ntp) }, "td"); return this.paint();
       case "timezone": {

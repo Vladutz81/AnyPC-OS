@@ -267,6 +267,10 @@ def make_handler(app):
 
         def _api_post(self, path, body):
             b = app.backend
+            if path == "/api/modules/leonida/check":
+                if body:
+                    raise ValueError("This action accepts no parameters")
+                return self._json(b.check_leonida(), HTTPStatus.ACCEPTED)
             if path == "/api/catalog/action":
                 return self._json(app.catalog.start(body.get("id"), body.get("action")), HTTPStatus.ACCEPTED)
             if path == "/api/users":

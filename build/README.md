@@ -136,3 +136,12 @@ available during concurrent downloads. The installed system can check, stage,
 restart and roll back using its System settings. Publishing credentials remain
 on the release host. The existing base ISO can also be remastered with
 --system-oci and a verified bootable OCI layout.
+
+## Native diagnostic build stage
+
+The leonida-native stage builds eleven pinned CPU checks using
+build/install-leonida.sh and compat/leonida/manifest.json. It verifies the source
+checksum and runs CTest with assertions enabled before copying the native
+executables, license and corresponding source into the bootable image.
+The final image does not contain the compiler or Vulkan development headers.
+See compat/leonida/README.md for the exact scope and runtime limits.

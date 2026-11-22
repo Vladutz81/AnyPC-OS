@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "kind": "native-diagnostics",
+  "revision": "067d3e8b97189fcf272dc699fdbb871eae496660",
+  "archive_sha256": "05a9f2986116b48e939a410f998746f0ba74981ecf766f6c76136cdccc0625e7",
+  "upstream": "https://github.com/ItsNotRexed/Leonida",
+  "license": "GPL-3.0-or-later",
+  "checks": [
+    "pipeline_cache_file_test",
+    "xdxr_descs_test",
+    "command_list_test",
+    "resource_tiling_test",
+    "descriptor_table_test",
+    "typeless_rtv_test",
+    "pipeline_cache_snapshot_test",
+    "clear_color_test",
+    "d3d12_state_map_test",
+    "gfx10_descriptors_test",
+    "vk_descriptor_bench"
+  ]
+}

@@ -2,18 +2,27 @@
 # Build:  podman build -f build/Containerfile -t anypc-os:dev .
 # See build/README.md for turning it into an installer ISO.
 ARG FEDORA=44
+FROM registry.fedoraproject.org/fedora:${FEDORA} AS leonida-native
+RUN dnf -y install cmake gcc-c++ ninja-build vulkan-headers vulkan-loader-devel python3 curl tar gzip \
+    && dnf clean all
+COPY build/install-leonida.sh /tmp/install-leonida.sh
+COPY compat/leonida/manifest.json /tmp/leonida-manifest.json
+RUN DESTDIR=/opt/leonida-root bash /tmp/install-leonida.sh /tmp/leonida-manifest.json
+
 FROM quay.io/fedora/fedora-bootc:${FEDORA}
 LABEL org.opencontainers.image.version="0.1.4"
 
 # Graphics, audio, networking, controllers and the console session.
 RUN dnf -y install \
       gamescope cage chromium python3 \
-      mesa-dri-drivers mesa-vulkan-drivers vulkan-loader \
+      mesa-dri-drivers mesa-vulkan-drivers vulkan-loader libstdc++ \
       pipewire pipewire-pulseaudio wireplumber \
       NetworkManager NetworkManager-wifi bluez polkit \
       greetd plymouth plymouth-plugin-script plymouth-plugin-label \
       pciutils flatpak xdg-desktop-portal-gtk xdg-desktop-portal-wlr linux-firmware udisks2 \
     && dnf clean all
+
+COPY --from=leonida-native /opt/leonida-root/usr/ /usr/
 
 COPY build/install-compat.sh /usr/libexec/anypc/install-compat.sh
 RUN bash /usr/libexec/anypc/install-compat.sh
